@@ -13,12 +13,23 @@ struct TempBenchFile
     HANDLE handle = INVALID_HANDLE_VALUE;
     bool buffered = false;
 
-    ~TempBenchFile()
+    void Cleanup()
     {
         if (handle != INVALID_HANDLE_VALUE)
+        {
             ::CloseHandle(handle);
+            handle = INVALID_HANDLE_VALUE;
+        }
         if (!path.empty())
+        {
             ::DeleteFileW(path.c_str());
+            path.clear();
+        }
+    }
+
+    ~TempBenchFile()
+    {
+        Cleanup();
     }
 };
 
@@ -99,8 +110,8 @@ bool OpenTestFile(TempBenchFile& file, const BenchmarkConfig& config, std::wstri
 
 bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t blockSize,
     bool write, bool sequential, uint64_t seed, const std::atomic_bool& cancel,
-    uint32_t timeoutSeconds, const BenchmarkCallback& callback, uint64_t completedBefore,
-    uint64_t totalBytes, BenchmarkResult& result, std::wstring& error)
+    uint32_t timeoutSeconds, uint32_t stageIndex, uint32_t stageCount,
+    const BenchmarkCallback& callback, BenchmarkResult& result, std::wstring& error)
 {
     result.name = name;
     result.bytes = bytes;
@@ -195,9 +206,10 @@ bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t bl
 
         if ((i + 1) % progressStep == 0 || i + 1 == blocks)
         {
-            uint64_t done = completedBefore + (i + 1) * blockSize;
+            const uint32_t stagePercent = blocks == 0 ? 100 : static_cast<uint32_t>((i + 1) * 100 / blocks);
             BenchmarkUpdate update;
-            update.percent = totalBytes == 0 ? 0 : static_cast<int>(std::min<uint64_t>(100, done * 100 / totalBytes));
+            update.percent = stageCount == 0 ? 0 : static_cast<int>(std::min<uint64_t>(100,
+                (static_cast<uint64_t>(stageIndex) * 100 + stagePercent) / stageCount));
             update.stage = name;
 
             // Interval throughput since the previous progress callback; the UI
@@ -342,36 +354,37 @@ bool RunBenchmark(const BenchmarkConfig& config, const std::atomic_bool& cancel,
         { Tr(L"1 MiB 随机读取"), config.largeBytes, config.largeBlock, false, false },
     };
 
-    uint64_t totalBytes = 0;
-    for (const auto& stage : stages)
-        totalBytes += stage.bytes;
-
-    uint64_t completed = 0;
     uint64_t seed = 0x123456789ABCDEFull;
-    for (const auto& stage : stages)
+    const uint32_t stageCount = static_cast<uint32_t>(sizeof(stages) / sizeof(stages[0]));
+    for (uint32_t stageIndex = 0; stageIndex < stageCount; ++stageIndex)
     {
+        const Stage& stage = stages[stageIndex];
         if (cancel.load())
+        {
+            file.Cleanup();
             return SendError(callback, Tr(L"测试已取消。"));
+        }
 
         BenchmarkUpdate update;
-        update.percent = totalBytes == 0 ? 0 : static_cast<int>(completed * 100 / totalBytes);
+        update.percent = stageCount == 0 ? 0 : static_cast<int>(stageIndex * 100 / stageCount);
         update.stage = stage.name;
         callback(update);
 
         BenchmarkResult result;
         if (!RunStage(file.handle, stage.name, stage.bytes, stage.block, stage.write, stage.sequential,
-            seed++, cancel, config.timeoutSeconds, callback, completed, totalBytes, result, error))
+            seed++, cancel, config.timeoutSeconds, stageIndex, stageCount, callback, result, error))
         {
+            file.Cleanup();
             return SendError(callback, std::wstring(stage.name) + Tr(L"：") + error, &result);
         }
 
-        completed += result.bytes;
-        update.percent = totalBytes == 0 ? 100 : static_cast<int>(completed * 100 / totalBytes);
+        update.percent = stageCount == 0 ? 100 : static_cast<int>((stageIndex + 1) * 100 / stageCount);
         update.stage = stage.name;
         update.result = result;
         callback(update);
     }
 
+    file.Cleanup();
     BenchmarkUpdate done;
     done.percent = 100;
     done.stage = Tr(L"测试完成");
