@@ -1,0 +1,23 @@
+# Build outputs
+bin/
+obj/
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+.vs/
+
+# Reports and temporary benchmark files
+USBInfo_Report.txt
+*_report.txt
+USBInfo_bench_*.tmp
+*.log
+
+# Local screenshots (docs/screenshot.png is committed)
+/screen*.png
+/gui*.png
+/smart*.png
+/bench*.png
+/final_ui.png
+/v2_*.png
+/v4_*.png
