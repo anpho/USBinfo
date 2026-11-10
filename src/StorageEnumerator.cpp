@@ -153,11 +153,12 @@ bool QueryStorageDescriptor(HANDLE disk, StorageInfo& storage)
         return false;
 
     auto* descriptor = reinterpret_cast<STORAGE_DEVICE_DESCRIPTOR*>(buffer.data());
-    auto getString = [&buffer](DWORD offset) -> std::wstring
+    const size_t available = std::min<size_t>(required, buffer.size());
+    auto getString = [&buffer, available](DWORD offset) -> std::wstring
     {
-        if (offset == 0 || offset >= buffer.size())
+        if (offset == 0)
             return std::wstring();
-        return std::wstring(reinterpret_cast<const wchar_t*>(buffer.data() + offset));
+        return ReadBoundedWideString(buffer.data(), available, offset);
     };
     std::wstring vendor = getString(descriptor->VendorIdOffset);
     std::wstring product = getString(descriptor->ProductIdOffset);
@@ -297,18 +298,23 @@ std::map<std::wstring, int, CaseInsensitiveLess> ReadDiskNumberMap()
     {
         wchar_t name[64] = {};
         DWORD nameLength = _countof(name);
-        BYTE data[1024] = {};
-        DWORD dataLength = sizeof(data);
+        std::vector<BYTE> data(1024, 0);
+        DWORD dataLength = static_cast<DWORD>(data.size());
         DWORD type = 0;
-        LONG status = ::RegEnumValueW(key, index, name, &nameLength, nullptr, &type, data, &dataLength);
+        LONG status = ::RegEnumValueW(key, index, name, &nameLength, nullptr, &type, data.data(), &dataLength);
+        if (status == ERROR_MORE_DATA)
+        {
+            data.resize(dataLength);
+            status = ::RegEnumValueW(key, index, name, &nameLength, nullptr, &type, data.data(), &dataLength);
+        }
         if (status != ERROR_SUCCESS)
             break;
         if ((type != REG_SZ && type != REG_EXPAND_SZ) || dataLength < sizeof(wchar_t))
             continue;
-        wchar_t* value = reinterpret_cast<wchar_t*>(data);
+        std::wstring valueText = ReadBoundedWideString(data.data(), dataLength, 0);
         int number = _wtoi(name);
-        if (number >= 0)
-            result[value] = number;
+        if (number >= 0 && !valueText.empty())
+            result[valueText] = number;
     }
     ::RegCloseKey(key);
     return result;
@@ -329,11 +335,17 @@ void EnumerateVolumes(std::vector<DiskRecord>& disks)
     {
         VolumeInfo volume;
         volume.volumeName = volumeName;
-        wchar_t paths[2048] = {};
-        DWORD pathLength = 0;
+        std::vector<wchar_t> pathBuffer;
         std::vector<std::wstring> pathList;
-        if (::GetVolumePathNamesForVolumeNameW(volumeName, paths, _countof(paths), &pathLength))
-            pathList = ParseMultiString(paths);
+        DWORD pathLength = 0;
+        ::GetVolumePathNamesForVolumeNameW(volumeName, nullptr, 0, &pathLength);
+        if (pathLength > 0)
+        {
+            pathBuffer.resize(pathLength + 1);
+            if (::GetVolumePathNamesForVolumeNameW(volumeName, pathBuffer.data(),
+                static_cast<DWORD>(pathBuffer.size()), &pathLength))
+                pathList = ParseMultiString(pathBuffer.data());
+        }
         volume.mountPoints = JoinVolumePaths(pathList);
         std::wstring drivePath = FindDrivePath(pathList);
         volume.rootPath = !drivePath.empty() ? drivePath : volumeName;

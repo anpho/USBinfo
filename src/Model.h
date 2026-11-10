@@ -298,8 +298,11 @@ std::wstring JoinStrings(const std::vector<std::wstring>& items, const wchar_t* 
 bool StartsWithNoCase(const std::wstring& value, const std::wstring& prefix);
 bool ContainsNoCase(const std::wstring& value, const std::wstring& needle);
 std::wstring ToUpperNoCase(const std::wstring& value);
-std::wstring ReplaceAll(std::wstring text, const std::wstring& from, const std::wstring& to);
 std::wstring MakeSingleLine(const std::wstring& text);
-std::wstring IndentText(const std::wstring& text, int spaces);
 
-std::wstring CsvEscape(const std::wstring& text);
+// Report helpers shared by CLI and GUI.
+std::wstring DefaultReportPath();
+bool WriteUtf8Report(const std::wstring& path, const std::wstring& text);
+
+// Reads a NUL-terminated UTF-16 string only inside [data, data + size).
+std::wstring ReadBoundedWideString(const BYTE* data, size_t size, size_t offset);

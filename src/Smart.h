@@ -8,3 +8,6 @@
 // SAT ATA PASS-THROUGH (SCSI).  Returns true if any health/SMART data was read.
 bool ReadSmartData(HANDLE diskHandle, StorageInfo& storage);
 bool ReadAtaIdentify(HANDLE diskHandle, StorageInfo& storage);
+
+// Small synthetic parse test used by --self-test.
+bool SmartSelfTest();

@@ -120,7 +120,7 @@ bool LooksLikeSmartData(const BYTE* data, size_t size, size_t offset)
     int plausible = 0;
     for (int i = 0; i < 30; ++i)
     {
-        const BYTE* attr = data + offset + 2 + i * 12;
+        const BYTE* attr = data + offset + i * 12;
         if (attr[0] == 0)
             continue;
         if (attr[3] >= 1 && attr[3] <= 253 && attr[4] >= 1 && attr[4] <= 253)
@@ -148,9 +148,7 @@ bool ParseSmartAttributes(const std::vector<BYTE>& data, StorageInfo& storage)
     std::vector<SmartAttribute> attributes;
     for (int i = 0; i < 30; ++i)
     {
-        const BYTE* attr = data.data() + offset + 2 + i * 12;
-        if (offset == 0)
-            attr = data.data() + i * 12;
+        const BYTE* attr = data.data() + offset + i * 12;
         int id = attr[0];
         if (id == 0)
             continue;
@@ -419,10 +417,14 @@ bool TryNvmeSmart(HANDLE disk, StorageInfo& storage, DWORD* errorCode)
     }
 
     auto* protocol = reinterpret_cast<STORAGE_PROTOCOL_SPECIFIC_DATA*>(output);
-    const BYTE* data = output + protocol->ProtocolDataOffset;
-    if (protocol->ProtocolDataLength < 512)
+    const size_t offset = protocol->ProtocolDataOffset;
+    if (protocol->ProtocolDataLength < 512 ||
+        offset > sizeof(output) ||
+        offset + 512 > sizeof(output) ||
+        offset + 512 > returned)
         return false;
 
+    const BYTE* data = output + offset;
     BYTE criticalWarning = data[0];
     USHORT temperatureKelvin = static_cast<USHORT>(data[1] | (data[2] << 8));
     BYTE availableSpare = data[3];
@@ -597,4 +599,49 @@ bool ReadSmartData(HANDLE diskHandle, StorageInfo& storage)
         storage.smartMessage += std::wstring(L" ") + Tr(L"最后错误") + L": " + GetLastErrorMessage(lastError);
     storage.smartMessage += std::wstring(L" ") + Tr(L"USB 大容量存储桥接器通常不会透传 ATA/NVMe SMART。");
     return false;
+}
+
+bool SmartSelfTest()
+{
+    std::vector<BYTE> data(512, 0);
+    auto setAttribute = [&data](int slot, int id, int current, int worst, uint64_t raw)
+    {
+        BYTE* attr = data.data() + 2 + slot * 12;
+        attr[0] = static_cast<BYTE>(id);
+        attr[3] = static_cast<BYTE>(current);
+        attr[4] = static_cast<BYTE>(worst);
+        for (int i = 0; i < 6; ++i)
+            attr[5 + i] = static_cast<BYTE>((raw >> (8 * i)) & 0xFF);
+    };
+    setAttribute(0, 5, 100, 100, 1);
+    setAttribute(1, 9, 100, 100, 1234);
+
+    StorageInfo storage;
+    if (!ParseSmartAttributes(data, storage) || storage.smart.size() != 2)
+        return false;
+
+    std::vector<BYTE> thresholds(512, 0);
+    thresholds[2] = 5;
+    thresholds[3] = 10;
+    thresholds[2 + 12] = 9;
+    thresholds[2 + 12 + 1] = 10;
+    if (!ParseSmartThresholds(thresholds.data(), thresholds.size(), storage))
+        return false;
+    ApplySmartStatus(storage);
+
+    bool sawWarning = false;
+    bool sawNormal = false;
+    for (const auto& attr : storage.smart)
+    {
+        if (attr.id == 5 && attr.status == Tr(L"注意"))
+            sawWarning = true;
+        if (attr.id == 9 && attr.status == Tr(L"正常"))
+            sawNormal = true;
+    }
+
+    StorageInfo invalid;
+    std::vector<BYTE> zeros(512, 0);
+    if (ParseSmartAttributes(zeros, invalid))
+        return false;
+    return sawWarning && sawNormal;
 }

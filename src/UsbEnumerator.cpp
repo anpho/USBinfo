@@ -407,14 +407,24 @@ std::wstring QueryStringDescriptor(HANDLE hub, ULONG port, BYTE index)
 
 void QueryConfigurationDescriptor(HANDLE hub, ULONG port, UsbNode& node)
 {
-    BYTE buffer[4096] = {};
-    DWORD actual = 0;
-    if (!QueryUsbDescriptor(hub, port, USB_CONFIGURATION_DESCRIPTOR_TYPE, 0, 0, buffer, sizeof(buffer), &actual))
-        return;
-    if (actual < 9 || buffer[1] != USB_CONFIGURATION_DESCRIPTOR_TYPE)
+    BYTE header[9] = {};
+    DWORD headerActual = 0;
+    if (!QueryUsbDescriptor(hub, port, USB_CONFIGURATION_DESCRIPTOR_TYPE, 0, 0,
+        header, sizeof(header), &headerActual) || headerActual < 9 ||
+        header[1] != USB_CONFIGURATION_DESCRIPTOR_TYPE)
         return;
 
-    auto* config = reinterpret_cast<USB_CONFIGURATION_DESCRIPTOR*>(buffer);
+    const WORD totalLengthHeader = static_cast<WORD>(header[2] | (header[3] << 8));
+    if (totalLengthHeader < 9)
+        return;
+
+    std::vector<BYTE> buffer(totalLengthHeader, 0);
+    DWORD actual = 0;
+    if (!QueryUsbDescriptor(hub, port, USB_CONFIGURATION_DESCRIPTOR_TYPE, 0, 0,
+        buffer.data(), static_cast<DWORD>(buffer.size()), &actual) || actual < 9)
+        return;
+
+    auto* config = reinterpret_cast<USB_CONFIGURATION_DESCRIPTOR*>(buffer.data());
     WORD totalLength = std::min<WORD>(config->wTotalLength, static_cast<WORD>(actual));
     {
         wchar_t configText[256] = {};
@@ -429,7 +439,7 @@ void QueryConfigurationDescriptor(HANDLE hub, ULONG port, UsbNode& node)
     int interfaceIndex = -1;
     for (DWORD offset = 0; offset + 2 <= totalLength;)
     {
-        const BYTE* descriptor = buffer + offset;
+        const BYTE* descriptor = buffer.data() + offset;
         BYTE length = descriptor[0];
         BYTE type = descriptor[1];
         if (length < 2 || offset + length > totalLength)
@@ -579,11 +589,7 @@ void FillCableFromConnector(HANDLE hub, ULONG port, UsbNode& node)
 
     size_t stringOffset = offsetof(USB_PORT_CONNECTOR_PROPERTIES, CompanionHubSymbolicLinkName);
     if (actualLength > stringOffset)
-    {
-        const wchar_t* name = reinterpret_cast<const wchar_t*>(buffer.data() + stringOffset);
-        if (name[0] != L'\0')
-            cable.companionHub = name;
-    }
+        cable.companionHub = ReadBoundedWideString(buffer.data(), actualLength, stringOffset);
 
     // Only a real Type-C connector or a Billboard/Alt-Mode descriptor counts as
     // cable information.  A plain USB port (even when it has a companion port)

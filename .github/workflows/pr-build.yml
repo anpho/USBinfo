@@ -8,7 +8,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  actions: read
 
 concurrency:
   group: pr-build-${{ github.ref }}
@@ -18,6 +19,8 @@ jobs:
   build-release:
     name: Build Release x64
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout
@@ -60,13 +63,23 @@ jobs:
           /p:Platform=x64
           /p:PlatformToolset=${{ steps.toolset.outputs.toolset }}
 
+      - name: Self-test
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "bin\Release\USBInfo.exe").Path
+          $process = Start-Process -FilePath $exe -ArgumentList @("--self-test") -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "USBInfo self-test failed with exit code $($process.ExitCode)." }
+
       - name: Compress with UPX
         shell: pwsh
         run: |
           $upxVersion = "5.3.0"
+          $upxSha256 = "d127996c76615e431be810e9c8d2910dbe3dd400600c5c0c50276fc5a17a9705"
           $archive = Join-Path $env:RUNNER_TEMP "upx.zip"
           $upxDir = Join-Path $env:RUNNER_TEMP "upx"
           Invoke-WebRequest -Uri "https://github.com/upx/upx/releases/download/v$upxVersion/upx-$upxVersion-win64.zip" -OutFile $archive
+          $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
+          if ($actualHash -ne $upxSha256) { throw "UPX checksum mismatch: $actualHash" }
           Expand-Archive -LiteralPath $archive -DestinationPath $upxDir -Force
           $upx = Get-ChildItem $upxDir -Recurse -Filter upx.exe | Select-Object -First 1
           if (-not $upx) { throw "UPX executable not found." }
@@ -97,37 +110,14 @@ jobs:
           "zip=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "Packaged $zip"
 
-      - name: Upload release artifact
+      - name: Upload build artifact
         uses: actions/upload-artifact@v7
         with:
           name: USBInfo-${{ steps.version.outputs.version }}-x64
           path: ${{ steps.package.outputs.zip }}
           if-no-files-found: error
 
-      - name: Create draft release
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $tag = "v$version"
-          $zip = "${{ steps.package.outputs.zip }}"
-          gh release view $tag 2>$null | Out-Null
-          if ($LASTEXITCODE -eq 0) { $tag = "$tag-r${{ github.run_attempt }}" }
-          $notes = Join-Path $env:RUNNER_TEMP "release-notes.md"
-          $body = @"
-          Draft build for PR #${{ github.event.pull_request.number }}
-
-          - Version: $version
-          - Commit: ${{ github.sha }}
-          - Configuration: Release x64
-          - Compression: UPX --best --lzma
-          "@
-          [System.IO.File]::WriteAllText($notes, $body, (New-Object System.Text.UTF8Encoding($false)))
-          gh release create $tag $zip --draft --title "USBInfo $version (PR #${{ github.event.pull_request.number }})" --notes-file $notes --target "${{ github.sha }}"
-
-      - name: Write summary
+      - name: Write build summary
         shell: pwsh
         run: |
           @"
@@ -136,6 +126,40 @@ jobs:
           - Configuration: Release x64
           - Artifact: ${{ steps.package.outputs.zip }}
           - Version format: yyyy.MM.dd.buildnumber
-          - Draft release: v${{ steps.version.outputs.version }} (same-repo PRs)
           - UPX: --best --lzma
           "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+  release:
+    name: Create draft release
+    needs: build-release
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: USBInfo-${{ needs.build-release.outputs.version }}-x64
+          path: dist
+
+      - name: Create draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version='${{ needs.build-release.outputs.version }}'
+          zip="dist/USBInfo-${version}-x64.zip"
+          test -f "$zip"
+          tag="v${version}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            tag="${tag}-r${{ github.run_attempt }}"
+          fi
+          notes=$(printf 'Draft build for PR #%s\n\n- Version: %s\n- Commit: %s\n- Configuration: Release x64\n- Compression: UPX --best --lzma\n' \
+            '${{ github.event.pull_request.number }}' "$version" '${{ github.sha }}')
+          gh release create "$tag" "$zip" --draft \
+            --title "USBInfo $version (PR #${{ github.event.pull_request.number }})" \
+            --target "${{ github.sha }}" --notes "$notes"

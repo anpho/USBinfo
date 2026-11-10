@@ -73,6 +73,7 @@ Project files target `v145` for Visual Studio 2026. For Visual Studio 2022, use 
 ```text
 USBInfo.exe                  Launch the GUI
 USBInfo.exe --report <path>  Write a full text report and exit
+USBInfo.exe --self-test      Run built-in SMART parser and report writer checks
 ```
 
 Run as administrator to unlock physical-disk IOCTLs, SMART and some hub descriptors. Standard-user mode still shows the USB topology, PnP properties, volumes and capacities.
@@ -87,9 +88,9 @@ Benchmarks write only a temporary file on the selected volume, never directly to
 yyyy.MM.dd.buildnumber
 ```
 
-`buildnumber` is the monotonically increasing GitHub Actions run number. The workflow calls `tools/set-version.ps1` to update `src/Version.h`, detects the available toolset (`v145` on VS 2026 runners, `v143` on VS 2022 runners), builds with `vswhere`/MSBuild, compresses the Release executable with UPX (`--best --lzma`), runs a smoke test, and uploads `USBInfo-<version>-x64.zip` as an artifact.
+`buildnumber` is the monotonically increasing GitHub Actions run number. The workflow calls `tools/set-version.ps1` to update `src/Version.h`, detects the available toolset (`v145` on VS 2026 runners, `v143` on VS 2022 runners), builds with `vswhere`/MSBuild, runs the built-in `--self-test` checks, compresses the Release executable with UPX (`--best --lzma`), verifies the UPX archive hash, runs a report smoke test, and uploads `USBInfo-<version>-x64.zip` as an artifact.
 
-For pull requests opened from a branch in this repository, the workflow also creates a **draft GitHub Release** tagged `v<version>` and attaches the zip. Fork PRs still produce the Actions artifact, but skip release creation because the default `GITHUB_TOKEN` is read-only for fork events.
+For pull requests opened from a branch in this repository, a separate read-only-to-write handoff creates a **draft GitHub Release** tagged `v<version>` and attaches the zip. Fork PRs still produce the Actions artifact, but skip release creation because the default `GITHUB_TOKEN` is read-only for fork events.
 
 GitHub Pages serves the static landing page directly from `docs/`. In the repository settings, set **Pages → Build and deployment → Source** to **Deploy from a branch**, then choose branch **main** and folder **/docs**. No Pages Actions workflow is required.
 

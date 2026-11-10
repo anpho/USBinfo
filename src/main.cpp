@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "MainFrame.h"
 #include "Model.h"
+#include "Smart.h"
 #include "UsbEnumerator.h"
 #include "Language.h"
 #include "resource.h"
@@ -11,32 +12,39 @@ WTL::CAppModule _Module;
 
 namespace
 {
-bool WriteUtf8Report(const std::wstring& path, const std::wstring& text)
+bool ReportSelfTest()
 {
-    int utf8Size = ::WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
-    std::string utf8(static_cast<size_t>(std::max(0, utf8Size)), '\0');
-    if (utf8Size > 0)
-        ::WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), utf8.data(), utf8Size, nullptr, nullptr);
-
-    FILE* file = nullptr;
-    if (_wfopen_s(&file, path.c_str(), L"wb") != 0 || file == nullptr)
+    wchar_t tempDirectory[MAX_PATH] = {};
+    if (::GetTempPathW(_countof(tempDirectory), tempDirectory) == 0)
         return false;
-    const unsigned char bom[] = { 0xEF, 0xBB, 0xBF };
-    fwrite(bom, 1, sizeof(bom), file);
-    if (!utf8.empty())
-        fwrite(utf8.data(), 1, utf8.size(), file);
-    fclose(file);
-    return true;
-}
+    wchar_t tempFile[MAX_PATH] = {};
+    if (::GetTempFileNameW(tempDirectory, L"USB", 0, tempFile) == 0)
+        return false;
 
-std::wstring DefaultReportPath()
-{
-    wchar_t desktop[MAX_PATH] = {};
-    if (SUCCEEDED(::SHGetFolderPathW(nullptr, CSIDL_DESKTOPDIRECTORY, nullptr, 0, desktop)))
-        return std::wstring(desktop) + L"\\USBInfo_Report.txt";
-    wchar_t current[MAX_PATH] = {};
-    ::GetCurrentDirectoryW(_countof(current), current);
-    return std::wstring(current) + L"\\USBInfo_Report.txt";
+    const std::wstring path = tempFile;
+    bool ok = WriteUtf8Report(path, L"USBInfo self-test");
+    if (ok)
+    {
+        FILE* file = nullptr;
+        if (_wfopen_s(&file, path.c_str(), L"rb") != 0 || file == nullptr)
+        {
+            ok = false;
+        }
+        else
+        {
+            fseek(file, 0, SEEK_END);
+            long size = ftell(file);
+            fseek(file, 0, SEEK_SET);
+            std::string bytes(static_cast<size_t>(std::max(0L, size)), '\0');
+            if (size > 0)
+                fread(bytes.data(), 1, bytes.size(), file);
+            fclose(file);
+            const std::string expected = "\xEF\xBB\xBFUSBInfo self-test";
+            ok = bytes == expected;
+        }
+    }
+    ::DeleteFileW(path.c_str());
+    return ok;
 }
 
 int RunReportMode(const std::wstring& outputPath)
@@ -61,6 +69,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int showCommand)
     std::wstring reportPath;
     bool reportMode = false;
     bool showHelp = false;
+    bool selfTest = false;
     if (argv != nullptr)
     {
         for (int i = 1; i < argc; ++i)
@@ -75,6 +84,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int showCommand)
                     ++i;
                 }
             }
+            else if (_wcsicmp(argument.c_str(), L"--self-test") == 0)
+            {
+                selfTest = true;
+            }
             else if (_wcsicmp(argument.c_str(), L"--help") == 0 || _wcsicmp(argument.c_str(), L"/?") == 0)
             {
                 showHelp = true;
@@ -84,6 +97,15 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int showCommand)
     }
 
     LanguageInitialize();
+
+    if (selfTest)
+    {
+        if (!SmartSelfTest())
+            return 2;
+        if (!ReportSelfTest())
+            return 3;
+        return 0;
+    }
 
     if (showHelp)
     {

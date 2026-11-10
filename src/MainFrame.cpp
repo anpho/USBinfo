@@ -85,16 +85,6 @@ int ScaleForWindow(HWND window, int value)
     return ::MulDiv(value, static_cast<int>(dpi), 96);
 }
 
-std::wstring DefaultReportPath()
-{
-    wchar_t desktop[MAX_PATH] = {};
-    if (SUCCEEDED(::SHGetFolderPathW(nullptr, CSIDL_DESKTOPDIRECTORY, nullptr, 0, desktop)))
-        return std::wstring(desktop) + L"\\USBInfo_Report.txt";
-    wchar_t current[MAX_PATH] = {};
-    ::GetCurrentDirectoryW(_countof(current), current);
-    return std::wstring(current) + L"\\USBInfo_Report.txt";
-}
-
 // Build a double-NUL-terminated filter string for the common save dialog.
 std::wstring BuildReportFilter()
 {
@@ -404,46 +394,36 @@ LRESULT CMainFrame::OnFileExport(WORD, WORD, HWND, BOOL&)
     }
 
     std::wstring initial = DefaultReportPath();
-    wchar_t fileName[MAX_PATH] = {};
-    wcscpy_s(fileName, initial.c_str());
+    std::vector<wchar_t> fileName(std::max<size_t>(initial.size() + 1, 32768), L'\0');
+    std::copy(initial.begin(), initial.end(), fileName.begin());
     std::wstring filter = BuildReportFilter();
     OPENFILENAMEW dialog = {};
     dialog.lStructSize = sizeof(dialog);
     dialog.hwndOwner = m_hWnd;
     dialog.lpstrFilter = filter.c_str();
-    dialog.lpstrFile = fileName;
-    dialog.nMaxFile = _countof(fileName);
+    dialog.lpstrFile = fileName.data();
+    dialog.nMaxFile = static_cast<DWORD>(fileName.size());
     dialog.lpstrDefExt = L"txt";
     dialog.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST;
 
     if (!::GetSaveFileNameW(&dialog))
         return 0;
 
+    const std::wstring target = fileName.data();
     std::wstring report = BuildFullReport(*m_snapshot);
-    int utf8Size = ::WideCharToMultiByte(CP_UTF8, 0, report.c_str(), static_cast<int>(report.size()), nullptr, 0, nullptr, nullptr);
-    std::string utf8(static_cast<size_t>(std::max(0, utf8Size)), '\0');
-    if (utf8Size > 0)
-        ::WideCharToMultiByte(CP_UTF8, 0, report.c_str(), static_cast<int>(report.size()), utf8.data(), utf8Size, nullptr, nullptr);
-
-    FILE* file = nullptr;
-    if (_wfopen_s(&file, fileName, L"wb") != 0 || file == nullptr)
+    if (!WriteUtf8Report(target, report))
     {
         ::MessageBoxW(m_hWnd, Tr(L"无法写入报告文件。"), L"USBInfo", MB_OK | MB_ICONERROR);
         return 0;
     }
-    const unsigned char bom[] = { 0xEF, 0xBB, 0xBF };
-    fwrite(bom, 1, sizeof(bom), file);
-    if (!utf8.empty())
-        fwrite(utf8.data(), 1, utf8.size(), file);
-    fclose(file);
 
     std::wstring message = Tr(L"报告已导出：");
     message += L"\n";
-    message += fileName;
+    message += target;
     message += L"\n\n";
     message += Tr(L"是否现在打开？");
     if (::MessageBoxW(m_hWnd, message.c_str(), L"USBInfo", MB_YESNO | MB_ICONINFORMATION) == IDYES)
-        ::ShellExecuteW(m_hWnd, L"open", fileName, nullptr, nullptr, SW_SHOWNORMAL);
+        ::ShellExecuteW(m_hWnd, L"open", target.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     return 0;
 }
 

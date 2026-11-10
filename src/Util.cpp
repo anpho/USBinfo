@@ -4,13 +4,7 @@
 
 #include <cwctype>
 #include <cstdio>
-
-std::wstring LoadStringResource(UINT id)
-{
-    wchar_t buffer[1024] = {};
-    int length = ::LoadStringW(::GetModuleHandleW(nullptr), id, buffer, _countof(buffer));
-    return std::wstring(buffer, length > 0 ? length : 0);
-}
+#include <limits>
 
 std::wstring GetLastErrorMessage(DWORD error)
 {
@@ -71,19 +65,6 @@ std::wstring ToUpperNoCase(const std::wstring& value)
     return result;
 }
 
-std::wstring ReplaceAll(std::wstring text, const std::wstring& from, const std::wstring& to)
-{
-    if (from.empty())
-        return text;
-    size_t position = 0;
-    while ((position = text.find(from, position)) != std::wstring::npos)
-    {
-        text.replace(position, from.size(), to);
-        position += to.size();
-    }
-    return text;
-}
-
 std::wstring MakeSingleLine(const std::wstring& text)
 {
     std::wstring result;
@@ -108,26 +89,6 @@ std::wstring MakeSingleLine(const std::wstring& text)
     return Trim(result);
 }
 
-std::wstring IndentText(const std::wstring& text, int spaces)
-{
-    std::wstring indent(static_cast<size_t>(spaces), L' ');
-    std::wstring result;
-    size_t start = 0;
-    while (start <= text.size())
-    {
-        size_t end = text.find(L'\n', start);
-        if (end == std::wstring::npos)
-            end = text.size();
-        result += indent;
-        result.append(text, start, end - start);
-        if (end == text.size())
-            break;
-        result.push_back(L'\n');
-        start = end + 1;
-    }
-    return result;
-}
-
 std::wstring JoinStrings(const std::vector<std::wstring>& items, const wchar_t* separator)
 {
     std::wstring result;
@@ -140,20 +101,57 @@ std::wstring JoinStrings(const std::vector<std::wstring>& items, const wchar_t* 
     return result;
 }
 
-std::wstring CsvEscape(const std::wstring& text)
+std::wstring DefaultReportPath()
 {
-    if (text.find_first_of(L",\"\r\n") == std::wstring::npos)
-        return text;
-    std::wstring result = L"\"";
-    for (wchar_t ch : text)
+    wchar_t desktop[MAX_PATH] = {};
+    if (SUCCEEDED(::SHGetFolderPathW(nullptr, CSIDL_DESKTOPDIRECTORY, nullptr, 0, desktop)))
+        return std::wstring(desktop) + L"\\USBInfo_Report.txt";
+    wchar_t current[MAX_PATH] = {};
+    ::GetCurrentDirectoryW(_countof(current), current);
+    return std::wstring(current) + L"\\USBInfo_Report.txt";
+}
+
+bool WriteUtf8Report(const std::wstring& path, const std::wstring& text)
+{
+    if (text.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
+        return false;
+    int utf8Size = ::WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
+    if (utf8Size <= 0 && !text.empty())
+        return false;
+    std::string utf8(static_cast<size_t>(std::max(0, utf8Size)), '\0');
+    if (utf8Size > 0 &&
+        ::WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), utf8.data(), utf8Size, nullptr, nullptr) != utf8Size)
+        return false;
+
+    FILE* file = nullptr;
+    if (_wfopen_s(&file, path.c_str(), L"wb") != 0 || file == nullptr)
+        return false;
+    const unsigned char bom[] = { 0xEF, 0xBB, 0xBF };
+    bool ok = fwrite(bom, 1, sizeof(bom), file) == sizeof(bom);
+    if (ok && !utf8.empty())
+        ok = fwrite(utf8.data(), 1, utf8.size(), file) == utf8.size();
+    if (ok)
+        ok = fflush(file) == 0;
+    if (fclose(file) != 0)
+        ok = false;
+    if (!ok)
+        ::DeleteFileW(path.c_str());
+    return ok;
+}
+
+std::wstring ReadBoundedWideString(const BYTE* data, size_t size, size_t offset)
+{
+    if (data == nullptr || offset >= size || size - offset < sizeof(wchar_t))
+        return std::wstring();
+    std::wstring result;
+    for (size_t i = offset; i + 1 < size; i += 2)
     {
-        if (ch == L'"')
-            result += L"\"\"";
-        else
-            result.push_back(ch);
+        wchar_t ch = static_cast<wchar_t>(data[i] | (static_cast<unsigned>(data[i + 1]) << 8));
+        if (ch == L'\0')
+            return result;
+        result.push_back(ch);
     }
-    result += L"\"";
-    return result;
+    return std::wstring();
 }
 
 std::wstring NormalizeDeviceText(const std::wstring& text)

@@ -86,5 +86,3 @@ using std::uint16_t;
 using std::uint32_t;
 using std::uint64_t;
 using std::int64_t;
-
-std::wstring LoadStringResource(UINT id);
