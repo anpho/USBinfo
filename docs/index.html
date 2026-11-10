@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>USBInfo — USB topology, storage, SMART &amp; benchmark</title>
+  <meta name="description" content="A fast Windows utility for USB topology, hub and device descriptors, storage health, SMART and file-based read/write benchmarks.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="canonical" href="https://anpho.github.io/USBinfo/">
+  <meta property="og:title" content="USBInfo — USB, decoded.">
+  <meta property="og:description" content="See every USB device, port, hub and storage link. Benchmark real throughput on Windows.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://anpho.github.io/USBinfo/">
+  <meta property="og:image" content="https://anpho.github.io/USBinfo/screenshot.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="USBInfo — USB, decoded.">
+  <meta name="twitter:description" content="USB topology, descriptors, SMART and file-based throughput benchmarks for Windows.">
+  <meta name="twitter:image" content="https://anpho.github.io/USBinfo/screenshot.png">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%234f8cff'/%3E%3Cpath d='M33 13v25m0 0-7-7m7 7 7-7M22 20h22v12H22z' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #070b14;
+      --bg-soft: #0b111d;
+      --panel: rgba(15, 23, 42, .66);
+      --panel-strong: #0d1526;
+      --line: rgba(148, 163, 184, .15);
+      --line-bright: rgba(148, 163, 184, .28);
+      --text: #e8eefb;
+      --muted: #93a4bd;
+      --faint: #61728c;
+      --blue: #4f8cff;
+      --cyan: #22d3ee;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --radius: 18px;
+      --font: "Segoe UI", "Segoe UI Variable", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      --mono: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(900px 520px at 78% -8%, rgba(79, 140, 255, .23), transparent 62%),
+        radial-gradient(680px 420px at 8% 14%, rgba(34, 211, 238, .10), transparent 64%),
+        var(--bg);
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; }
+    img { max-width: 100%; display: block; }
+    ::selection { background: rgba(79, 140, 255, .38); }
+
+    .wrap { width: min(1160px, calc(100% - 48px)); margin-inline: auto; }
+    .skip-link {
+      position: absolute; left: 16px; top: -60px; z-index: 100;
+      background: var(--blue); color: #fff; padding: 10px 16px; border-radius: 8px;
+      text-decoration: none; font-weight: 600;
+    }
+    .skip-link:focus { top: 16px; }
+
+    /* ---------- header ---------- */
+    .site-header {
+      position: sticky; top: 0; z-index: 20;
+      background: rgba(7, 11, 20, .72);
+      border-bottom: 1px solid rgba(148, 163, 184, .10);
+      backdrop-filter: blur(18px);
+    }
+    .header-inner {
+      height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    }
+    .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 700; letter-spacing: -.02em; }
+    .brand-mark {
+      width: 30px; height: 30px; border-radius: 9px;
+      background: linear-gradient(145deg, #5b9aff, #2563eb);
+      display: grid; place-items: center;
+      box-shadow: 0 8px 24px rgba(37, 99, 235, .35);
+    }
+    .brand-mark svg { width: 18px; height: 18px; }
+    .brand small { color: var(--faint); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+    .nav { display: flex; align-items: center; gap: 26px; }
+    .nav a {
+      color: var(--muted); text-decoration: none; font-size: 13.5px; font-weight: 600;
+      transition: color .18s ease;
+    }
+    .nav a:hover, .nav a:focus-visible { color: var(--text); }
+    .header-cta { display: flex; align-items: center; gap: 10px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      min-height: 40px; padding: 0 17px; border-radius: 10px;
+      border: 1px solid var(--line-bright); color: var(--text);
+      font-size: 13.5px; font-weight: 650; text-decoration: none; white-space: nowrap;
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+    }
+    .btn:hover { transform: translateY(-1px); border-color: rgba(148, 163, 184, .48); }
+    .btn.primary {
+      border-color: transparent; color: #fff;
+      background: linear-gradient(180deg, #5a94ff, #3d74ed);
+      box-shadow: 0 10px 30px rgba(61, 116, 237, .30);
+    }
+    .btn.primary:hover { box-shadow: 0 12px 34px rgba(61, 116, 237, .42); }
+    .btn.ghost { background: rgba(148, 163, 184, .06); }
+    .btn svg { width: 15px; height: 15px; }
+
+    /* ---------- hero ---------- */
+    .hero { padding: 72px 0 34px; position: relative; }
+    .hero-grid { display: grid; grid-template-columns: 1.02fr .98fr; gap: 54px; align-items: center; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      color: var(--cyan); font-family: var(--mono); font-size: 11px; letter-spacing: .13em;
+      text-transform: uppercase; font-weight: 700; margin-bottom: 18px;
+    }
+    .eyebrow::before { content: ""; width: 18px; height: 1px; background: var(--cyan); opacity: .8; }
+    h1 {
+      margin: 0; font-size: clamp(44px, 6vw, 76px); line-height: .98;
+      letter-spacing: -.055em; font-weight: 800;
+    }
+    .gradient-text {
+      background: linear-gradient(100deg, #fff 12%, #a9c8ff 54%, #7be5f2 98%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .hero h1 .dim { color: #64748b; }
+    .hero-copy {
+      margin: 22px 0 0; color: var(--muted); font-size: 17px; max-width: 54ch;
+    }
+    .hero-copy strong { color: #d6e5ff; font-weight: 600; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .hero-actions .btn { min-height: 46px; padding-inline: 20px; font-size: 14px; }
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 22px; margin-top: 30px; color: var(--faint); font-family: var(--mono); font-size: 11px; }
+    .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
+    .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px rgba(52, 211, 153, .8); }
+
+    /* ---------- screenshot ---------- */
+    .shot-wrap { position: relative; }
+    .shot-glow {
+      position: absolute; inset: 12% 2% 6% 10%;
+      background: radial-gradient(ellipse at center, rgba(79, 140, 255, .30), transparent 70%);
+      filter: blur(32px); pointer-events: none;
+    }
+    .shot-frame {
+      position: relative; border: 1px solid rgba(148, 163, 184, .22); border-radius: 14px;
+      background: #0a101b; overflow: hidden;
+      box-shadow: 0 34px 80px rgba(0, 0, 0, .58), 0 0 0 1px rgba(255, 255, 255, .025) inset;
+      transform: perspective(1200px) rotateY(-2deg) rotateX(.5deg);
+      transition: transform .4s ease;
+    }
+    .shot-frame:hover { transform: perspective(1200px) rotateY(0) rotateX(0); }
+    .shot-bar {
+      height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 11px;
+      border-bottom: 1px solid rgba(148, 163, 184, .12);
+      background: rgba(148, 163, 184, .045);
+    }
+    .shot-bar i { width: 6px; height: 6px; border-radius: 50%; background: #334155; }
+    .shot-bar span { margin-left: 8px; color: #60718c; font-family: var(--mono); font-size: 9px; letter-spacing: .04em; }
+    .shot-frame img { width: 100%; height: auto; }
+    .shot-badge {
+      position: absolute; right: -12px; bottom: 20px;
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 12px; border-radius: 10px;
+      background: rgba(10, 16, 28, .92); border: 1px solid rgba(148, 163, 184, .22);
+      font-family: var(--mono); font-size: 10px; color: #9fb1c9;
+      box-shadow: 0 14px 32px rgba(0, 0, 0, .4);
+    }
+    .shot-badge b { color: var(--green); font-weight: 600; }
+
+    /* ---------- sections ---------- */
+    section { padding: 82px 0; }
+    .section-head { max-width: 660px; margin-bottom: 34px; }
+    .kicker {
+      color: var(--blue); text-transform: uppercase; letter-spacing: .14em;
+      font-family: var(--mono); font-size: 10.5px; font-weight: 700; margin: 0 0 12px;
+    }
+    h2 { margin: 0; font-size: clamp(28px, 3.6vw, 42px); line-height: 1.1; letter-spacing: -.04em; font-weight: 760; }
+    .section-head p { margin: 13px 0 0; color: var(--muted); max-width: 60ch; }
+
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .card {
+      padding: 24px; border: 1px solid var(--line); border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(148, 163, 184, .055), rgba(148, 163, 184, .015));
+      transition: border-color .2s ease, transform .2s ease, background .2s ease;
+    }
+    .card:hover {
+      border-color: rgba(79, 140, 255, .36);
+      transform: translateY(-3px);
+      background: linear-gradient(180deg, rgba(79, 140, 255, .09), rgba(148, 163, 184, .02));
+    }
+    .card-icon {
+      width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
+      color: #9ec5ff; background: rgba(79, 140, 255, .12); border: 1px solid rgba(79, 140, 255, .20);
+      margin-bottom: 18px;
+    }
+    .card-icon svg { width: 19px; height: 19px; }
+    .card h3 { margin: 0 0 8px; font-size: 16px; letter-spacing: -.015em; }
+    .card p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.65; }
+    .card code { color: #b9d3ff; font-family: var(--mono); font-size: .92em; }
+
+    /* ---------- showcase ---------- */
+    .showcase {
+      display: grid; grid-template-columns: .82fr 1.18fr; gap: 44px; align-items: center;
+      border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+      padding: 70px 0;
+    }
+    .shot-tabs { display: flex; gap: 7px; margin: 24px 0 14px; }
+    .shot-tab {
+      appearance: none; cursor: pointer; border: 1px solid var(--line-bright);
+      color: var(--muted); background: transparent; border-radius: 8px;
+      padding: 7px 11px; font: 600 11.5px var(--font);
+    }
+    .shot-tab[aria-selected="true"] { color: #fff; border-color: rgba(79, 140, 255, .55); background: rgba(79, 140, 255, .16); }
+    .showcase-frame { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #0a101b; box-shadow: 0 24px 60px rgba(0, 0, 0, .4); }
+    .showcase-frame img { width: 100%; }
+    .mini-list { margin: 24px 0 0; padding: 0; list-style: none; display: grid; gap: 11px; }
+    .mini-list li { display: flex; gap: 10px; color: var(--muted); font-size: 13.5px; }
+    .mini-list svg { width: 15px; height: 15px; color: var(--green); flex: 0 0 auto; margin-top: 3px; }
+
+    /* ---------- languages ---------- */
+    .languages { text-align: center; }
+    .languages .section-head { margin-inline: auto; }
+    .language-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; margin-top: 8px; }
+    .lang-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 9px 14px; border-radius: 999px;
+      border: 1px solid var(--line); background: rgba(148, 163, 184, .045);
+      color: #c9d7ea; font-size: 13px; font-weight: 600;
+    }
+    .lang-pill span { color: var(--faint); font: 10px var(--mono); }
+    .language-note { margin: 24px 0 0; color: var(--faint); font-size: 12.5px; }
+
+    /* ---------- safe / split ---------- */
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+    .safety { display: grid; gap: 12px; margin-top: 26px; }
+    .safety-item { border: 1px solid var(--line); border-radius: 12px; padding: 16px 17px; background: rgba(148, 163, 184, .035); }
+    .safety-item strong { display: block; font-size: 13.5px; margin-bottom: 3px; }
+    .safety-item p { margin: 0; color: var(--muted); font-size: 12.5px; }
+    .code-card {
+      border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+      background: #080d17; box-shadow: 0 20px 50px rgba(0, 0, 0, .28);
+    }
+    .code-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); color: var(--faint); font: 10.5px var(--mono); letter-spacing: .04em; }
+    .code-body { padding: 18px 17px 20px; font: 12.5px/1.9 var(--mono); color: #acbdd4; overflow-x: auto; }
+    .code-body .prompt { color: var(--green); }
+    .code-body .cmd { color: #dbe8ff; }
+    .code-body .comment { color: #5c6e86; }
+
+    /* ---------- cta ---------- */
+    .cta { padding: 0 0 86px; }
+    .cta-panel {
+      position: relative; overflow: hidden; border-radius: 22px;
+      border: 1px solid rgba(79, 140, 255, .26);
+      background:
+        radial-gradient(520px 280px at 82% 10%, rgba(34, 211, 238, .17), transparent 70%),
+        radial-gradient(520px 300px at 10% 100%, rgba(79, 140, 255, .25), transparent 72%),
+        #0b1220;
+      padding: 46px;
+      display: flex; align-items: center; justify-content: space-between; gap: 32px;
+    }
+    .cta-panel h2 { max-width: 16ch; }
+    .cta-panel p { margin: 12px 0 0; color: var(--muted); max-width: 48ch; }
+    .cta-actions { display: flex; flex-wrap: wrap; gap: 11px; flex: 0 0 auto; }
+    .cta-actions .btn { min-height: 46px; }
+
+    /* ---------- footer ---------- */
+    footer { border-top: 1px solid var(--line); padding: 30px 0 38px; color: var(--faint); font-size: 12px; }
+    .footer-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; }
+    .footer-inner a { color: var(--muted); text-decoration: none; }
+    .footer-inner a:hover { color: var(--text); }
+    .footer-links { display: flex; flex-wrap: wrap; gap: 18px; }
+
+    /* ---------- reveal ---------- */
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    @media (max-width: 980px) {
+      .hero-grid, .showcase, .split { grid-template-columns: 1fr; }
+      .hero { padding-top: 52px; }
+      .shot-wrap { max-width: 780px; margin-inline: auto; }
+      .feature-grid { grid-template-columns: repeat(2, 1fr); }
+      .cta-panel { flex-direction: column; align-items: flex-start; padding: 36px; }
+    }
+    @media (max-width: 720px) {
+      .wrap { width: min(100% - 30px, 1160px); }
+      .nav { display: none; }
+      .header-inner { height: 60px; }
+      .header-cta .btn.ghost { display: none; }
+      .hero { padding: 44px 0 20px; }
+      .hero-copy { font-size: 15.5px; }
+      .hero-meta { gap: 14px; }
+      .feature-grid { grid-template-columns: 1fr; }
+      section { padding: 58px 0; }
+      .cta { padding-bottom: 58px; }
+      .cta-panel { padding: 28px; border-radius: 18px; }
+      .shot-frame { transform: none; }
+      .shot-badge { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+  <noscript><style>.reveal { opacity: 1; transform: none; }</style></noscript>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#top" aria-label="USBInfo home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 5v11m0 0-3-3m3 3 3-3M8 8h8v5H8z"/>
+          </svg>
+        </span>
+        <span>USBInfo <small>Windows utility</small></span>
+      </a>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="#features">Features</a>
+        <a href="#showcase">Interface</a>
+        <a href="#languages">Languages</a>
+        <a href="#build">Build</a>
+      </nav>
+      <div class="header-cta">
+        <a class="btn ghost" href="https://github.com/anpho/USBinfo" target="_blank" rel="noreferrer">GitHub</a>
+        <a class="btn primary" href="https://github.com/anpho/USBinfo/releases" target="_blank" rel="noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+          Download
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="eyebrow">Windows 10 / 11 · C++20 · WTL</p>
+          <h1><span class="gradient-text">USB,</span><br><span class="dim">decoded.</span></h1>
+          <p class="hero-copy">
+            See every controller, hub, port, interface and storage link.
+            Read the descriptors Windows exposes, check SMART health, and measure
+            <strong>real file-level throughput</strong> — without telemetry or raw-disk writes.
+          </p>
+          <div class="hero-actions">
+            <a class="btn primary" href="https://github.com/anpho/USBinfo/releases" target="_blank" rel="noreferrer">Download for Windows</a>
+            <a class="btn" href="https://github.com/anpho/USBinfo" target="_blank" rel="noreferrer">View source</a>
+          </div>
+          <div class="hero-meta" aria-label="Highlights">
+            <span><i class="dot"></i>Release x64</span>
+            <span>8 UI languages</span>
+            <span>No telemetry</span>
+            <span>Static CRT</span>
+          </div>
+        </div>
+
+        <div class="shot-wrap">
+          <div class="shot-glow" aria-hidden="true"></div>
+          <div class="shot-frame">
+            <div class="shot-bar" aria-hidden="true">
+              <i></i><i></i><i></i><span>USBInfo — USB topology</span>
+            </div>
+            <img src="screenshot.png" width="1500" height="940" alt="USBInfo main window showing a USB topology tree and device details">
+          </div>
+          <div class="shot-badge"><b>●</b> USB 3.2 link · SMART · 4K IOPS</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="kicker">What you get</p>
+          <h2>Everything between the port and the protocol.</h2>
+          <p>One window for the physical tree, the descriptors behind it, and the storage speed in front of it.</p>
+        </div>
+
+        <div class="feature-grid">
+          <article class="card reveal">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="5" rx="1"/><rect x="14" y="4" width="7" height="5" rx="1"/><rect x="8.5" y="15" width="7" height="5" rx="1"/><path d="M6.5 9v3h11V9M12 12v3"/></svg>
+            </div>
+            <h3>Topology map</h3>
+            <p>Host controllers → root hubs → external hubs → devices → interfaces, with the PnP parent chain preserved. Branches stay readable, details stay in the right pane.</p>
+          </article>
+
+          <article class="card reveal">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+            </div>
+            <h3>Descriptor-level detail</h3>
+            <p>VID/PID, USB version, class and protocol, configuration, interfaces, endpoints, BOS capabilities, link speed, driver service, INF and PnP location.</p>
+          </article>
+
+          <article class="card reveal">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6c0-1.1 3.6-2 8-2s8 .9 8 2-3.6 2-8 2-8-.9-8-2z"/><path d="M4 6v6c0 1.1 3.6 2 8 2s8-.9 8-2V6M4 12v6c0 1.1 3.6 2 8 2s8-.9 8-2v-6"/></svg>
+            </div>
+            <h3>Storage &amp; SMART</h3>
+            <p>Capacity, volumes, partition style, bridge chip, bus type and SMART health through ATA, SATA bridge or NVMe paths when the device exposes them.</p>
+          </article>
+
+          <article class="card reveal">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16"/><path d="m7 15 4-5 3 3 4-6"/></svg>
+            </div>
+            <h3>Real throughput</h3>
+            <p>Sequential and 4K random read/write tests with MB/s, IOPS and latency, plus a Task Manager-style live curve. File-based only — never a raw-disk write.</p>
+          </article>
+
+          <article class="card reveal">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"/></svg>
+            </div>
+            <h3>Copy, locate, export</h3>
+            <p>Right-click any value to copy it, copy the row or the whole page. Driver rows jump to the driver file or INF directory. Export a full text report in one click.</p>
+          </article>
+
+          <article class="card reveal">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/><path d="m9 12 2 2 4-4"/></svg>
+            </div>
+            <h3>Privacy-first</h3>
+            <p>No telemetry, no network access, no background service. Standard-user mode still exposes the topology; administrator mode unlocks deeper IOCTLs and SMART.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <div class="wrap">
+      <section class="showcase" id="showcase">
+        <div class="reveal">
+          <p class="kicker">One window, full context</p>
+          <h2>Short in the tree.<br>Deep in the details.</h2>
+          <p class="section-head" style="margin-bottom:0">Titles stay compact so large topologies stay readable. Select a node to inspect every descriptor, driver field and storage value on the right.</p>
+          <div class="shot-tabs" role="tablist" aria-label="Interface language">
+            <button class="shot-tab" type="button" role="tab" aria-selected="true" data-shot="screenshot.png" data-alt="USBInfo interface in Simplified Chinese">简体中文</button>
+            <button class="shot-tab" type="button" role="tab" aria-selected="false" data-shot="screenshot-en.png" data-alt="USBInfo interface in English">English</button>
+          </div>
+          <ul class="mini-list">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>38.2 / 61.8 split keeps the tree and detail page balanced.</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>SMART and benchmark tabs appear only when the selected device supports them.</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>Switch language without rescanning or losing your place.</li>
+          </ul>
+        </div>
+        <div class="showcase-frame reveal">
+          <img id="showcase-image" src="screenshot.png" width="1500" height="940" loading="lazy" alt="USBInfo interface in Simplified Chinese">
+        </div>
+      </section>
+    </div>
+
+    <section id="languages">
+      <div class="wrap languages">
+        <div class="section-head reveal">
+          <p class="kicker">Speaks your language</p>
+          <h2>Automatic by default.<br>Manual when you want it.</h2>
+          <p>USBInfo follows the Windows display language. Switch at runtime via <strong>View → Language</strong> — no restart, no rescan.</p>
+        </div>
+        <div class="language-row reveal" aria-label="Supported languages">
+          <span class="lang-pill">简体中文 <span>zh-CN</span></span>
+          <span class="lang-pill">English <span>en-US</span></span>
+          <span class="lang-pill">Français <span>fr-FR</span></span>
+          <span class="lang-pill">Deutsch <span>de-DE</span></span>
+          <span class="lang-pill">Español <span>es-ES</span></span>
+          <span class="lang-pill">日本語 <span>ja-JP</span></span>
+          <span class="lang-pill">한국어 <span>ko-KR</span></span>
+          <span class="lang-pill">Русский <span>ru-RU</span></span>
+        </div>
+        <p class="language-note reveal">Translation resources are compiled into the executable as C++ tables. No language DLLs to install.</p>
+      </div>
+    </section>
+
+    <section id="build">
+      <div class="wrap split">
+        <div class="reveal">
+          <p class="kicker">Safe by design</p>
+          <h2>Built to inspect,<br>not to touch.</h2>
+          <p class="section-head" style="margin-bottom:0">A diagnostic tool should not change the thing it measures. USBInfo is intentionally conservative.</p>
+          <div class="safety">
+            <div class="safety-item"><strong>No raw-disk writes</strong><p>Benchmarks create a temporary file on the selected volume, flush it, measure, then delete it.</p></div>
+            <div class="safety-item"><strong>No telemetry or network calls</strong><p>USB data stays on the machine. Nothing is uploaded.</p></div>
+            <div class="safety-item"><strong>Honest about limits</strong><p>Missing cable E-Marker, hidden NAND and bridge-dependent SMART are reported as unavailable — never invented.</p></div>
+          </div>
+        </div>
+
+        <div class="reveal">
+          <div class="code-card">
+            <div class="code-head"><span>PowerShell / Command Prompt</span><span>Release x64</span></div>
+            <div class="code-body">
+              <div><span class="comment"># run the GUI</span></div>
+              <div><span class="prompt">&gt;</span> <span class="cmd">USBInfo.exe</span></div>
+              <div style="height:8px"></div>
+              <div><span class="comment"># export a full text report</span></div>
+              <div><span class="prompt">&gt;</span> <span class="cmd">USBInfo.exe --report report.txt</span></div>
+              <div style="height:8px"></div>
+              <div><span class="comment"># build from source</span></div>
+              <div><span class="prompt">&gt;</span> <span class="cmd">msbuild USBInfo.sln /m /p:Configuration=Release /p:Platform=x64</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="wrap cta">
+      <div class="cta-panel reveal">
+        <div>
+          <p class="kicker">Open source · Windows x64</p>
+          <h2>Ready to see what’s really on the bus?</h2>
+          <p>Download a Release build, or clone the repository and build it with Visual Studio 2022/2026.</p>
+        </div>
+        <div class="cta-actions">
+          <a class="btn primary" href="https://github.com/anpho/USBinfo/releases" target="_blank" rel="noreferrer">Download</a>
+          <a class="btn" href="https://github.com/anpho/USBinfo" target="_blank" rel="noreferrer">GitHub</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap footer-inner">
+      <span>USBInfo · built by anpho &amp; Deepseek · WTL 10 / C++20</span>
+      <div class="footer-links">
+        <a href="https://github.com/anpho/USBinfo" target="_blank" rel="noreferrer">GitHub</a>
+        <a href="https://github.com/anpho/USBinfo/releases" target="_blank" rel="noreferrer">Releases</a>
+        <a href="https://github.com/anpho/USBinfo/blob/main/README.md" target="_blank" rel="noreferrer">README</a>
+        <a href="#top">Back to top</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var tabs = document.querySelectorAll('.shot-tab');
+      var image = document.getElementById('showcase-image');
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          tabs.forEach(function (other) { other.setAttribute('aria-selected', 'false'); });
+          tab.setAttribute('aria-selected', 'true');
+          if (image) {
+            image.src = tab.getAttribute('data-shot');
+            image.alt = tab.getAttribute('data-alt');
+          }
+        });
+      });
+
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('visible');
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.12 });
+        document.querySelectorAll('.reveal').forEach(function (node) { observer.observe(node); });
+      } else {
+        document.querySelectorAll('.reveal').forEach(function (node) { node.classList.add('visible'); });
+      }
+    })();
+  </script>
+</body>
+</html>
