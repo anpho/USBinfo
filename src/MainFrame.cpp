@@ -58,6 +58,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT)
 
     SetWindowText(L"USBInfo - USB 设备、HUB、存储与线缆信息");
     LayoutChildren();
+    UpdateMenuState();
     PostMessage(WM_APP_REQUEST_REFRESH, 0, 0);
     return 0;
 }
@@ -75,6 +76,14 @@ void CMainFrame::BuildMenu()
     fileMenu.AppendMenuW(MF_STRING, ID_FILE_EXIT, L"退出(&X)");
     menu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(fileMenu.Detach()), L"文件(&F)");
 
+    CMenu actionMenu;
+    actionMenu.CreatePopupMenu();
+    actionMenu.AppendMenuW(MF_STRING, ID_ACTION_BENCH, L"测速(&T)...");
+    actionMenu.AppendMenuW(MF_STRING, ID_ACTION_COPY, L"复制当前节点信息(&C)");
+    actionMenu.AppendMenuW(MF_SEPARATOR);
+    actionMenu.AppendMenuW(MF_STRING, ID_FILE_EXPORT, L"导出报告(&E)...");
+    menu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(actionMenu.Detach()), L"操作(&O)");
+
     CMenu viewMenu;
     viewMenu.CreatePopupMenu();
     viewMenu.AppendMenuW(MF_STRING, ID_VIEW_EXPAND_ALL, L"展开全部");
@@ -89,6 +98,21 @@ void CMainFrame::BuildMenu()
     menu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(helpMenu.Detach()), L"帮助(&H)");
 
     SetMenu(menu.Detach());
+}
+
+void CMainFrame::UpdateMenuState()
+{
+    HMENU menu = GetMenu();
+    if (menu == nullptr)
+        return;
+
+    const bool hasSnapshot = m_snapshot != nullptr && !m_scanning;
+    const bool canCopy = hasSnapshot && m_detailPane.CanCopySelected();
+    const bool canBench = hasSnapshot && m_detailPane.CanBenchmarkSelected();
+    ::EnableMenuItem(menu, ID_ACTION_BENCH, MF_BYCOMMAND | (canBench ? MF_ENABLED : MF_GRAYED));
+    ::EnableMenuItem(menu, ID_ACTION_COPY, MF_BYCOMMAND | (canCopy ? MF_ENABLED : MF_GRAYED));
+    ::EnableMenuItem(menu, ID_FILE_EXPORT, MF_BYCOMMAND | (hasSnapshot ? MF_ENABLED : MF_GRAYED));
+    ::DrawMenuBar(m_hWnd);
 }
 
 void CMainFrame::OnSize(UINT, CSize)
@@ -138,6 +162,7 @@ void CMainFrame::StartScan()
 
     m_cancel = false;
     m_scanning = true;
+    UpdateMenuState();
     m_treePane.SetScanning(true);
     m_detailPane.SetScanning();
     m_status.SetText(0, L"正在扫描 USB 拓扑…");
@@ -222,12 +247,14 @@ LRESULT CMainFrame::OnScanDone(UINT, WPARAM, LPARAM lParam, BOOL&)
         m_status.SetText(0, L"扫描失败");
     }
     UpdateStatus();
+    UpdateMenuState();
     return 0;
 }
 
 LRESULT CMainFrame::OnNodeSelected(UINT, WPARAM wParam, LPARAM, BOOL&)
 {
     m_detailPane.ShowNode(static_cast<int>(wParam));
+    UpdateMenuState();
     return 0;
 }
 
@@ -293,6 +320,19 @@ LRESULT CMainFrame::OnFileExport(WORD, WORD, HWND, BOOL&)
 LRESULT CMainFrame::OnFileExit(WORD, WORD, HWND, BOOL&)
 {
     PostMessage(WM_CLOSE, 0, 0);
+    return 0;
+}
+
+LRESULT CMainFrame::OnActionBench(WORD, WORD, HWND, BOOL&)
+{
+    m_detailPane.OpenBenchmarkPage();
+    UpdateMenuState();
+    return 0;
+}
+
+LRESULT CMainFrame::OnActionCopy(WORD, WORD, HWND, BOOL&)
+{
+    m_detailPane.CopyCurrentInfo();
     return 0;
 }
 

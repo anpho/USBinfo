@@ -20,6 +20,8 @@ public:
         COMMAND_ID_HANDLER(ID_FILE_REFRESH, OnFileRefresh)
         COMMAND_ID_HANDLER(ID_FILE_EXPORT, OnFileExport)
         COMMAND_ID_HANDLER(ID_FILE_EXIT, OnFileExit)
+        COMMAND_ID_HANDLER(ID_ACTION_BENCH, OnActionBench)
+        COMMAND_ID_HANDLER(ID_ACTION_COPY, OnActionCopy)
         COMMAND_ID_HANDLER(ID_VIEW_EXPAND_ALL, OnExpandAll)
         COMMAND_ID_HANDLER(ID_VIEW_COLLAPSE_ALL, OnCollapseAll)
         COMMAND_ID_HANDLER(ID_VIEW_ELEVATE, OnElevate)
@@ -41,6 +43,8 @@ private:
     LRESULT OnFileRefresh(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnFileExport(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnFileExit(WORD notifyCode, WORD id, HWND control, BOOL& handled);
+    LRESULT OnActionBench(WORD notifyCode, WORD id, HWND control, BOOL& handled);
+    LRESULT OnActionCopy(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnExpandAll(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnCollapseAll(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnElevate(WORD notifyCode, WORD id, HWND control, BOOL& handled);
@@ -50,6 +54,7 @@ private:
     LRESULT OnRequestRefresh(UINT message, WPARAM wParam, LPARAM lParam, BOOL& handled);
 
     void BuildMenu();
+    void UpdateMenuState();
     void LayoutChildren();
     void StartScan();
     void UpdateStatus();

@@ -165,7 +165,6 @@ void ShowExplorerDirectory(HWND owner, const std::wstring& directory)
 int CDetailPane::OnCreate(LPCREATESTRUCT)
 {
     m_font = AtlCreateControlFont();
-    m_boldFont = AtlCreateBoldFont(m_font);
     LOGFONT logFont = {};
     ::GetObject(m_font, sizeof(logFont), &logFont);
     logFont.lfHeight = -ScaleForWindow(m_hWnd, 18);
@@ -177,17 +176,6 @@ int CDetailPane::OnCreate(LPCREATESTRUCT)
     m_title.SetFont(m_titleFont);
     m_meta.Create(m_hWnd, rcDefault, L"左侧树中显示 USB 级联关系", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0);
     m_meta.SetFont(m_font);
-
-    m_copy.Create(m_hWnd, rcDefault, L"复制信息", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, IDC_BTN_COPY);
-    m_bench.Create(m_hWnd, rcDefault, L"测速", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, IDC_BTN_BENCH);
-    m_export.Create(m_hWnd, rcDefault, L"导出报告", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, IDC_BTN_EXPORT);
-    m_copy.SetFont(m_font);
-    m_bench.SetFont(m_boldFont);
-    m_export.SetFont(m_font);
-    // The benchmark action only exists for removable/writable volumes; keep the
-    // button hidden until a node with benchmark capability is selected.
-    m_bench.ShowWindow(SW_HIDE);
-    m_bench.EnableWindow(FALSE);
 
     m_warning.Create(m_hWnd, rcDefault, L"", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0);
     m_warning.SetFont(m_font);
@@ -238,11 +226,6 @@ void CDetailPane::OnDestroy()
         ::DeleteObject(m_titleFont);
         m_titleFont = nullptr;
     }
-    if (m_boldFont != nullptr)
-    {
-        ::DeleteObject(m_boldFont);
-        m_boldFont = nullptr;
-    }
     if (m_font != nullptr)
     {
         ::DeleteObject(m_font);
@@ -277,41 +260,22 @@ void CDetailPane::LayoutChildren()
     RECT client = {};
     ::GetClientRect(m_hWnd, &client);
     const int margin = ScaleForWindow(m_hWnd, 14);
-    const int buttonWidth = ScaleForWindow(m_hWnd, 96);
-    const int buttonHeight = ScaleForWindow(m_hWnd, 28);
-    const int gap = ScaleForWindow(m_hWnd, 8);
     const int fullWidth = std::max(100, static_cast<int>(client.right) - margin * 2);
 
-    // Title and subtitle use the full row; the action buttons live on their own
-    // row underneath so a long device name is never squeezed out.
     const int titleY = ScaleForWindow(m_hWnd, 8);
     const int titleHeight = ScaleForWindow(m_hWnd, 32);
     const int metaY = titleY + titleHeight;
     const int metaHeight = ScaleForWindow(m_hWnd, 22);
-    const int buttonsY = metaY + metaHeight + ScaleForWindow(m_hWnd, 6);
-    const int warningY = buttonsY + buttonHeight + ScaleForWindow(m_hWnd, 6);
+    const int warningY = metaY + metaHeight + ScaleForWindow(m_hWnd, 8);
 
     m_title.MoveWindow(margin, titleY, fullWidth, titleHeight);
     m_meta.MoveWindow(margin, metaY, fullWidth, metaHeight);
-
-    // Right-align the buttons that are actually visible: 测速 / 复制信息 / 导出报告.
-    int visibleButtons = 2 + (m_benchAvailable ? 1 : 0);
-    int totalButtonsWidth = buttonWidth * visibleButtons + gap * (visibleButtons - 1);
-    int buttonX = std::max(margin, static_cast<int>(client.right) - margin - totalButtonsWidth);
-    if (m_benchAvailable)
-    {
-        m_bench.MoveWindow(buttonX, buttonsY, buttonWidth, buttonHeight);
-        buttonX += buttonWidth + gap;
-    }
-    m_copy.MoveWindow(buttonX, buttonsY, buttonWidth, buttonHeight);
-    buttonX += buttonWidth + gap;
-    m_export.MoveWindow(buttonX, buttonsY, buttonWidth, buttonHeight);
 
     bool warningVisible = m_warning.IsWindowVisible() != FALSE;
     if (warningVisible)
         m_warning.MoveWindow(margin, warningY, fullWidth, ScaleForWindow(m_hWnd, 24));
     int tabsY = warningVisible ? warningY + ScaleForWindow(m_hWnd, 30)
-                               : buttonsY + buttonHeight + ScaleForWindow(m_hWnd, 6);
+                               : warningY;
     m_tabs.MoveWindow(margin, tabsY, fullWidth,
         std::max(10, static_cast<int>(client.bottom) - tabsY - margin));
 
@@ -327,10 +291,33 @@ void CDetailPane::LayoutChildren()
     m_smart.MoveWindow(&content);
     m_benchPane.MoveWindow(&content);
 
-    int infoWidth = std::max(100, static_cast<int>(content.right) - static_cast<int>(content.left));
-    m_info.SetColumnWidth(0, ScaleForWindow(m_hWnd, 245));
-    m_info.SetColumnWidth(1, std::max(200, infoWidth - ScaleForWindow(m_hWnd, 260)));
-    m_smart.SetColumnWidth(1, ScaleForWindow(m_hWnd, 220));
+    // Size columns from the actual list client width (after the vertical
+    // scrollbar is accounted for) so no horizontal scrollbar is ever needed.
+    RECT infoClient = {};
+    m_info.GetClientRect(&infoClient);
+    const int infoWidth = std::max(120, static_cast<int>(infoClient.right));
+    const int infoKeyWidth = std::min(ScaleForWindow(m_hWnd, 240), infoWidth / 3);
+    m_info.SetColumnWidth(0, infoKeyWidth);
+    m_info.SetColumnWidth(1, std::max(80, infoWidth - infoKeyWidth));
+
+    RECT smartClient = {};
+    m_smart.GetClientRect(&smartClient);
+    const int smartWidth = std::max(120, static_cast<int>(smartClient.right));
+    const int smartWeights[] = { 1, 5, 2, 2, 2, 4, 3 };
+    const int smartTotal = 19;
+    int assigned = 0;
+    for (int column = 0; column < 7; ++column)
+    {
+        int columnWidth = column == 6
+            ? std::max(40, smartWidth - assigned)
+            : std::max(24, smartWidth * smartWeights[column] / smartTotal);
+        if (assigned + columnWidth > smartWidth)
+            columnWidth = std::max(24, smartWidth - assigned);
+        m_smart.SetColumnWidth(column, columnWidth);
+        assigned += columnWidth;
+    }
+    ::ShowScrollBar(m_info, SB_HORZ, FALSE);
+    ::ShowScrollBar(m_smart, SB_HORZ, FALSE);
 }
 
 bool CDetailPane::PageAvailable(int pageId) const
@@ -424,8 +411,6 @@ void CDetailPane::UpdateTabsAvailability(const UsbNode* storageNode)
             }
         }
     }
-    m_bench.ShowWindow(m_benchAvailable ? SW_SHOW : SW_HIDE);
-    m_bench.EnableWindow(m_benchAvailable ? TRUE : FALSE);
 }
 
 void CDetailPane::RebuildTabs()
@@ -463,8 +448,6 @@ void CDetailPane::SetScanning()
     m_benchPane.ClearTarget();
     m_smartAvailable = false;
     m_benchAvailable = false;
-    m_bench.ShowWindow(SW_HIDE);
-    m_bench.EnableWindow(FALSE);
     RebuildTabs();
     LayoutChildren();
 }
@@ -484,8 +467,6 @@ void CDetailPane::ShowNode(int nodeId)
         m_benchPane.ClearTarget();
         m_smartAvailable = false;
         m_benchAvailable = false;
-        m_bench.ShowWindow(SW_HIDE);
-        m_bench.EnableWindow(FALSE);
         RebuildTabs();
         UpdateWarning();
         LayoutChildren();
@@ -639,31 +620,28 @@ void CDetailPane::FillSmart(const UsbNode& node, const UsbNode* storageNode)
     m_smart.Invalidate();
 }
 
-LRESULT CDetailPane::OnCopy(WORD, WORD, HWND, BOOL&)
+bool CDetailPane::CanCopySelected() const
 {
-    if (m_snapshot == nullptr)
-        return 0;
-    const UsbNode* node = m_snapshot->Find(m_nodeId);
-    if (node == nullptr)
-        return 0;
-    CopyTextToClipboard(m_hWnd, BuildNodePlainText(*node));
-    return 0;
+    return m_snapshot != nullptr && m_snapshot->Find(m_nodeId) != nullptr;
 }
 
-LRESULT CDetailPane::OnBench(WORD, WORD, HWND, BOOL&)
+void CDetailPane::CopyCurrentInfo()
+{
+    if (m_snapshot == nullptr)
+        return;
+    const UsbNode* node = m_snapshot->Find(m_nodeId);
+    if (node == nullptr)
+        return;
+    CopyTextToClipboard(m_hWnd, BuildNodePlainText(*node));
+}
+
+void CDetailPane::OpenBenchmarkPage()
 {
     if (!m_benchAvailable)
-        return 0;
+        return;
     ShowPage(PageBench);
     LayoutChildren();
     m_benchPane.FocusStart();
-    return 0;
-}
-
-LRESULT CDetailPane::OnExport(WORD, WORD, HWND, BOOL&)
-{
-    ::SendMessage(::GetAncestor(m_hWnd, GA_ROOT), WM_COMMAND, MAKEWPARAM(ID_FILE_EXPORT, 0), 0);
-    return 0;
 }
 
 LRESULT CDetailPane::OnTabChanged(int, LPNMHDR, BOOL&)

@@ -16,9 +16,6 @@ public:
         MSG_WM_DESTROY(OnDestroy)
         MESSAGE_HANDLER(WM_ERASEBKGND, OnEraseBkgnd)
         MESSAGE_HANDLER(WM_CTLCOLORSTATIC, OnCtlColorStatic)
-        COMMAND_ID_HANDLER(IDC_BTN_COPY, OnCopy)
-        COMMAND_ID_HANDLER(IDC_BTN_BENCH, OnBench)
-        COMMAND_ID_HANDLER(IDC_BTN_EXPORT, OnExport)
         NOTIFY_HANDLER(IDC_TABS, TCN_SELCHANGE, OnTabChanged)
         NOTIFY_HANDLER(IDC_INFO_LIST, NM_RCLICK, OnInfoRightClick)
         NOTIFY_HANDLER(IDC_SMART_LIST, NM_RCLICK, OnSmartRightClick)
@@ -28,6 +25,10 @@ public:
     void ShowNode(int nodeId);
     int SelectedNodeId() const { return m_nodeId; }
     void SetScanning();
+    void OpenBenchmarkPage();
+    void CopyCurrentInfo();
+    bool CanCopySelected() const;
+    bool CanBenchmarkSelected() const { return m_benchAvailable; }
 
 private:
     // Page identifiers stored in TCITEM.lParam. Keep in sync with ShowPage().
@@ -43,9 +44,6 @@ private:
     void OnDestroy();
     LRESULT OnEraseBkgnd(UINT message, WPARAM wParam, LPARAM lParam, BOOL& handled);
     LRESULT OnCtlColorStatic(UINT message, WPARAM wParam, LPARAM lParam, BOOL& handled);
-    LRESULT OnCopy(WORD notifyCode, WORD id, HWND control, BOOL& handled);
-    LRESULT OnBench(WORD notifyCode, WORD id, HWND control, BOOL& handled);
-    LRESULT OnExport(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnTabChanged(int idCtrl, LPNMHDR notifyHeader, BOOL& handled);
     LRESULT OnInfoRightClick(int idCtrl, LPNMHDR notifyHeader, BOOL& handled);
     LRESULT OnSmartRightClick(int idCtrl, LPNMHDR notifyHeader, BOOL& handled);
@@ -71,9 +69,6 @@ private:
     CStatic m_title;
     CStatic m_meta;
     CStatic m_warning;
-    CButton m_copy;
-    CButton m_bench;
-    CButton m_export;
     CTabCtrl m_tabs;
     CListViewCtrl m_info;
     CListViewCtrl m_smart;
@@ -82,7 +77,6 @@ private:
     std::shared_ptr<const UsbSnapshot> m_snapshot;
     int m_nodeId = -1;
     HFONT m_font = nullptr;
-    HFONT m_boldFont = nullptr;
     HFONT m_titleFont = nullptr;
     int m_currentPage = PageInfo;
     bool m_smartAvailable = false;

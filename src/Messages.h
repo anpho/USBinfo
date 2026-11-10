@@ -39,6 +39,8 @@
 #define ID_FILE_REFRESH           40001
 #define ID_FILE_EXPORT            40002
 #define ID_FILE_EXIT              40003
+#define ID_ACTION_BENCH           40004
+#define ID_ACTION_COPY            40005
 #define ID_VIEW_EXPAND_ALL        40010
 #define ID_VIEW_COLLAPSE_ALL      40011
 #define ID_VIEW_ELEVATE           40012

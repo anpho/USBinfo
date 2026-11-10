@@ -283,18 +283,34 @@ void CBenchmarkPane::LayoutChildren()
     const int resultsHeight = std::max(0, static_cast<int>(client.bottom) - resultsY - margin);
     m_results.MoveWindow(margin, resultsY, width, resultsHeight);
 
-    // Keep all seven columns inside the available width (no horizontal scroll).
+    // Size columns from the actual list client width (after the vertical
+    // scrollbar is accounted for) so no horizontal scrollbar is ever needed.
+    RECT resultsClient = {};
+    m_results.GetClientRect(&resultsClient);
+    const int tableWidth = std::max(120, static_cast<int>(resultsClient.right));
     int widths[kResultColumns] = {};
-    widths[0] = width * 28 / 100;
-    widths[1] = width * 12 / 100;
-    widths[2] = width * 11 / 100;
-    widths[3] = width * 14 / 100;
-    widths[4] = width * 10 / 100;
-    widths[5] = width * 12 / 100;
-    widths[6] = std::max(ScaleForWindow(m_hWnd, 80),
-        width - widths[0] - widths[1] - widths[2] - widths[3] - widths[4] - widths[5]);
+    widths[0] = tableWidth * 28 / 100;
+    widths[1] = tableWidth * 12 / 100;
+    widths[2] = tableWidth * 11 / 100;
+    widths[3] = tableWidth * 14 / 100;
+    widths[4] = tableWidth * 10 / 100;
+    widths[5] = tableWidth * 12 / 100;
+    widths[6] = tableWidth - widths[0] - widths[1] - widths[2] - widths[3] - widths[4] - widths[5];
+    if (widths[6] < 50)
+    {
+        widths[6] = 50;
+        int excess = 50 - (tableWidth - widths[0] - widths[1] - widths[2] - widths[3] - widths[4] - widths[5]);
+        for (int column = 0; column < 6 && excess > 0; ++column)
+        {
+            int reducible = std::max(0, widths[column] - 40);
+            int reduce = std::min(reducible, excess);
+            widths[column] -= reduce;
+            excess -= reduce;
+        }
+    }
     for (int column = 0; column < kResultColumns; ++column)
         m_results.SetColumnWidth(column, widths[column]);
+    ::ShowScrollBar(m_results, SB_HORZ, FALSE);
 }
 
 void CBenchmarkPane::ResetChart(const std::wstring& title, const std::wstring& message)
@@ -313,6 +329,23 @@ void CBenchmarkPane::SetTarget(const StorageInfo* storage)
         ClearTarget();
         return;
     }
+
+    std::wstring targetKey = storage->pnpInstance;
+    if (targetKey.empty())
+        targetKey = storage->diskPath + L"|" + storage->model;
+    const bool targetChanged = targetKey != m_targetKey;
+    if (targetChanged)
+    {
+        if (m_running)
+            m_benchCancel = true;
+        m_results.DeleteAllItems();
+        m_progress.SetPos(0);
+        m_chartStage.clear();
+        m_chart.Clear(L"实时吞吐 (MB/s)");
+        m_chart.SetMessage(L"等待测速…");
+        m_targetKey = targetKey;
+    }
+
     m_storage = *storage;
 
     m_volume.ResetContent();
@@ -367,6 +400,12 @@ void CBenchmarkPane::ClearTarget()
     m_hasTarget = false;
     m_hasWritableVolume = false;
     m_storage = StorageInfo{};
+    m_targetKey.clear();
+    m_results.DeleteAllItems();
+    m_progress.SetPos(0);
+    m_chartStage.clear();
+    m_chart.Clear(L"实时吞吐 (MB/s)");
+    m_chart.SetMessage(L"等待测速…");
     m_volume.ResetContent();
     m_volume.AddString(L"仅 USB 存储设备支持测速");
     m_volume.SetCurSel(0);

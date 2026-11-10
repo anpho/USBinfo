@@ -68,5 +68,6 @@ private:
     bool m_running = false;
     std::atomic_bool m_benchCancel = false;
     std::thread m_thread;
+    std::wstring m_targetKey;
     std::wstring m_chartStage;
 };
