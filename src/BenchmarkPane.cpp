@@ -764,11 +764,14 @@ LRESULT CBenchmarkPane::OnBenchUpdate(UINT, WPARAM, LPARAM lParam, BOOL&)
     {
         m_running = false;
         SetRunningUi(false);
-        JoinThread();
+        // The worker may still be deleting the large temp file. Do not join it
+        // on the UI thread; allow an immediate new run.
+        if (m_thread.joinable())
+            m_thread.detach();
         m_chartStage.clear();
         if (update->ok)
         {
-            m_status.SetWindowText(Tr(L"测速完成。临时文件已删除。"));
+            m_status.SetWindowText(Tr(L"测速完成"));
             m_chart.SetMessage(L"测速完成");
         }
         else

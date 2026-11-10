@@ -55,10 +55,12 @@ std::wstring MakeTempPath(const std::wstring& volumeRoot)
         return std::wstring();
     if (root.back() != L'\\' && root.back() != L'/')
         root.push_back(L'\\');
-    wchar_t buffer[128] = {};
-    swprintf_s(buffer, L"USBInfo_bench_%lu_%llu.tmp",
+    static std::atomic<uint64_t> sequence{0};
+    wchar_t buffer[160] = {};
+    swprintf_s(buffer, L"USBInfo_bench_%lu_%llu_%llu.tmp",
         static_cast<unsigned long>(::GetCurrentProcessId()),
-        static_cast<unsigned long long>(::GetTickCount64()));
+        static_cast<unsigned long long>(::GetTickCount64()),
+        static_cast<unsigned long long>(sequence.fetch_add(1)));
     return root + buffer;
 }
 
@@ -360,10 +362,7 @@ bool RunBenchmark(const BenchmarkConfig& config, const std::atomic_bool& cancel,
     {
         const Stage& stage = stages[stageIndex];
         if (cancel.load())
-        {
-            file.Cleanup();
             return SendError(callback, Tr(L"测试已取消。"));
-        }
 
         BenchmarkUpdate update;
         update.percent = stageCount == 0 ? 0 : static_cast<int>(stageIndex * 100 / stageCount);
@@ -374,7 +373,6 @@ bool RunBenchmark(const BenchmarkConfig& config, const std::atomic_bool& cancel,
         if (!RunStage(file.handle, stage.name, stage.bytes, stage.block, stage.write, stage.sequential,
             seed++, cancel, config.timeoutSeconds, stageIndex, stageCount, callback, result, error))
         {
-            file.Cleanup();
             return SendError(callback, std::wstring(stage.name) + Tr(L"：") + error, &result);
         }
 
@@ -384,13 +382,12 @@ bool RunBenchmark(const BenchmarkConfig& config, const std::atomic_bool& cancel,
         callback(update);
     }
 
-    file.Cleanup();
     BenchmarkUpdate done;
     done.percent = 100;
     done.stage = Tr(L"测试完成");
     done.done = true;
     done.ok = true;
-    done.message = Tr(L"所有测试已完成。测试文件已删除。");
+    done.message = Tr(L"所有测试已完成。");
     callback(done);
     return true;
 }
