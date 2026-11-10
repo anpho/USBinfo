@@ -15,9 +15,9 @@ constexpr wchar_t kWebsiteUrl[] = L"https://github.com/anpho/USBinfo";
 
 void OpenProjectHomepage()
 {
-    // Ask the running shell (Explorer) to open the URL through its COM object.
-    // This avoids starting a child explorer.exe, which can fail with
-    // 0xc0000142 in a standard-user session.
+    // Use the running shell's COM object instead of ShellExecute. This keeps
+    // the browser launch in the interactive Explorer context and avoids
+    // creating an elevated browser when USBInfo itself is elevated.
     CComPtr<IShellDispatch2> shell;
     if (SUCCEEDED(shell.CoCreateInstance(CLSID_Shell)))
     {
@@ -28,12 +28,7 @@ void OpenProjectHomepage()
     }
 
     // Fallback: direct URL association.
-    SHELLEXECUTEINFOW info = {};
-    info.cbSize = sizeof(info);
-    info.lpVerb = L"open";
-    info.lpFile = kWebsiteUrl;
-    info.nShow = SW_SHOWNORMAL;
-    ::ShellExecuteExW(&info);
+    ::ShellExecuteW(nullptr, L"open", kWebsiteUrl, nullptr, nullptr, SW_SHOWNORMAL);
 }
 
 struct LanguageMenuEntry
