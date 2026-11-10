@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <VCProjectVersion>18.0</VCProjectVersion>
+    <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{5B2A7E13-7D2C-4C31-9A76-2D0E8F6A8C41}</ProjectGuid>
     <RootNamespace>USBInfo</RootNamespace>
@@ -144,6 +144,7 @@
     <ClInclude Include="src\LanguageCore.inc" />
     <ClInclude Include="src\LanguageUi.inc" />
     <ClInclude Include="src\LanguageData.inc" />
+    <ClInclude Include="src\Version.h" />
     <ClInclude Include="src\ThroughputChart.h" />
     <ClInclude Include="src\MainFrame.h" />
     <ClInclude Include="src\TreePane.h" />

@@ -1,6 +1,8 @@
 # Build outputs
 bin/
 obj/
+dist/
+*.zip
 *.user
 *.suo
 *.VC.db

@@ -1,0 +1,92 @@
+name: PR Build
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-release:
+    name: Build Release x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute version
+        id: version
+        shell: pwsh
+        run: |
+          $date = Get-Date -Format 'yyyy.MM.dd'
+          $build = "${{ github.run_number }}"
+          $version = "$date.$build"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Build version: $version"
+
+      - name: Update version header
+        shell: pwsh
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/set-version.ps1 -Version "${{ steps.version.outputs.version }}"
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Select Visual C++ toolset
+        id: toolset
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $install = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $install) { throw "Visual C++ tools not found." }
+          $vcRoot = Join-Path $install 'VC\Tools\MSVC'
+          $toolset = if (Get-ChildItem $vcRoot -Directory | Where-Object { $_.Name -like '14.5*' }) { 'v145' } else { 'v143' }
+          "toolset=$toolset" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Using PlatformToolset=$toolset from $install"
+
+      - name: Build Release
+        shell: pwsh
+        run: >
+          msbuild USBInfo.sln /m
+          /p:Configuration=Release
+          /p:Platform=x64
+          /p:PlatformToolset=${{ steps.toolset.outputs.toolset }}
+
+      - name: Package release
+        id: package
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $zip = "USBInfo-$version-x64.zip"
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Copy-Item "bin\Release\USBInfo.exe" "dist\USBInfo.exe"
+          Copy-Item "README.md" "dist\README.md"
+          Compress-Archive -Path "dist\*" -DestinationPath $zip -Force
+          "zip=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Packaged $zip"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: USBInfo-${{ steps.version.outputs.version }}-x64
+          path: ${{ steps.package.outputs.zip }}
+          if-no-files-found: error
+
+      - name: Write summary
+        shell: pwsh
+        run: |
+          @"
+          ## USBInfo ${{ steps.version.outputs.version }}
+
+          - Configuration: Release x64
+          - Artifact: ${{ steps.package.outputs.zip }}
+          - Version format: yyyy.MM.dd.buildnumber
+          "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8

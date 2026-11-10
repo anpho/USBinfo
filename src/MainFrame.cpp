@@ -4,6 +4,7 @@
 #include "Model.h"
 #include "DeviceProps.h"
 #include "Language.h"
+#include "Version.h"
 
 #include <commdlg.h>
 #include <cstdio>
@@ -11,6 +12,13 @@
 namespace
 {
 constexpr wchar_t kWebsiteUrl[] = L"https://github.com/anpho/USBinfo";
+
+void OpenProjectHomepage()
+{
+    // Keep this intentionally simple: let the shell resolve the default
+    // browser/association for the project URL.
+    ::ShellExecuteW(nullptr, L"open", kWebsiteUrl, nullptr, nullptr, SW_SHOWNORMAL);
+}
 
 struct LanguageMenuEntry
 {
@@ -367,7 +375,7 @@ LRESULT CMainFrame::OnLanguageCommand(UINT, int id, HWND)
 
 LRESULT CMainFrame::OnHelpWebsite(WORD, WORD, HWND, BOOL&)
 {
-    ::ShellExecuteW(m_hWnd, L"open", kWebsiteUrl, nullptr, nullptr, SW_SHOWNORMAL);
+    OpenProjectHomepage();
     return 0;
 }
 
@@ -481,7 +489,7 @@ LRESULT CMainFrame::OnElevate(WORD, WORD, HWND, BOOL&)
 
 LRESULT CMainFrame::OnAbout(WORD, WORD, HWND, BOOL&)
 {
-    std::wstring message = L"USBInfo 1.0\n\n";
+    std::wstring message = std::wstring(L"USBInfo ") + USBINFO_VERSION_WSTRING + L"\n\n";
     message += Tr(L"基于 WTL / C++20 / Win32 的 USB 拓扑、HUB、存储与测速工具。");
     message += L"\n\n";
     message += Tr(L"• 左侧树展示 USB 主机控制器 → HUB → 设备 → 接口/存储/端口的级联关系");
@@ -499,7 +507,10 @@ LRESULT CMainFrame::OnAbout(WORD, WORD, HWND, BOOL&)
     message += L"anpho & Deepseek\n";
     message += Tr(L"网页：");
     message += L"https://github.com/anpho/USBinfo";
-    ::MessageBoxW(m_hWnd, message.c_str(), Tr(L"关于 USBInfo"), MB_OK | MB_ICONINFORMATION);
+    message += L"\n\n";
+    message += Tr(L"是否现在打开项目主页？");
+    if (::MessageBoxW(m_hWnd, message.c_str(), Tr(L"关于 USBInfo"), MB_YESNO | MB_ICONINFORMATION) == IDYES)
+        OpenProjectHomepage();
     return 0;
 }
 
