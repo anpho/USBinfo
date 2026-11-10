@@ -19,6 +19,7 @@ USBInfo walks the PnP/USB tree, reads standard USB descriptors and hub port capa
 - **USB storage**: capacity, free space, volumes, partition style, bus type, bridge/controller chip, SMART attachment; no fabricated NAND or cable data.
 - **SMART / health**: ATA, SATA bridge, and NVMe paths when the device and driver expose them; the tab is hidden when no health data is available.
 - **Benchmark**: sequential read/write and 4K random read/write (plus 4K sequential and 1 MiB random), with MB/s, IOPS, latency and a Task Manager-style throughput curve.
+- **Per-test timeout**: choose 3 s, 5 s, 10 s or unlimited from the benchmark page. The default is unlimited to preserve full measurements on slow drives.
 - **Report export**: full text report; every detail value and row can be copied from the context menu; driver rows can locate the driver file or INF directory.
 - **Privacy-friendly**: no telemetry, no network access, no raw-disk writes.
 

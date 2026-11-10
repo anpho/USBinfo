@@ -27,6 +27,7 @@
 #define IDC_BENCH_RESULTS         1126
 #define IDC_BENCH_WARNING         1127
 #define IDC_BENCH_CHART           1128
+#define IDC_BENCH_TIMEOUT         1129
 
 // Context-menu commands for the detail lists.
 #define IDM_CONTEXT_COPY_VALUE    1201

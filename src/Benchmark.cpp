@@ -99,8 +99,8 @@ bool OpenTestFile(TempBenchFile& file, const BenchmarkConfig& config, std::wstri
 
 bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t blockSize,
     bool write, bool sequential, uint64_t seed, const std::atomic_bool& cancel,
-    const BenchmarkCallback& callback, uint64_t completedBefore, uint64_t totalBytes,
-    BenchmarkResult& result, std::wstring& error)
+    uint32_t timeoutSeconds, const BenchmarkCallback& callback, uint64_t completedBefore,
+    uint64_t totalBytes, BenchmarkResult& result, std::wstring& error)
 {
     result.name = name;
     result.bytes = bytes;
@@ -133,10 +133,13 @@ bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t bl
     LARGE_INTEGER lastSample = {};
     ::QueryPerformanceFrequency(&frequency);
     ::QueryPerformanceCounter(&start);
+    const uint64_t timeoutTicks = timeoutSeconds == 0 ? 0 : frequency.QuadPart * timeoutSeconds;
     lastSample = start;
     uint64_t lastSampleBytes = 0;
 
     bool ok = true;
+    bool timedOut = false;
+    uint64_t completedBlocks = 0;
     std::wstring localError;
     uint64_t progressStep = std::max<uint64_t>(1, blocks / 64);
 
@@ -147,6 +150,17 @@ bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t bl
             localError = Tr(L"已取消。");
             ok = false;
             break;
+        }
+
+        if (timeoutTicks != 0)
+        {
+            LARGE_INTEGER now = {};
+            ::QueryPerformanceCounter(&now);
+            if (static_cast<uint64_t>(now.QuadPart - start.QuadPart) >= timeoutTicks)
+            {
+                timedOut = true;
+                break;
+            }
         }
 
         uint64_t index = sequential ? i : (XorShift64(state) % blocks);
@@ -177,6 +191,7 @@ bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t bl
             ok = false;
             break;
         }
+        ++completedBlocks;
 
         if ((i + 1) % progressStep == 0 || i + 1 == blocks)
         {
@@ -200,6 +215,24 @@ bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t bl
 
             callback(update);
         }
+    }
+
+    if (timedOut)
+    {
+        const uint64_t doneBytes = completedBlocks * blockSize;
+        const double seconds = std::max(1e-9, SecondsSince(start, frequency));
+        result.bytes = doneBytes;
+        result.seconds = seconds;
+        result.mbps = (static_cast<double>(doneBytes) / (1024.0 * 1024.0)) / seconds;
+        result.iops = completedBlocks > 0 ? static_cast<double>(completedBlocks) / seconds : 0.0;
+        result.latencyMs = completedBlocks > 0 ? seconds * 1000.0 / static_cast<double>(completedBlocks) : 0.0;
+        result.ok = true;
+        result.timedOut = true;
+        wchar_t message[128] = {};
+        swprintf_s(message, Tr(L"本项测试超时（%u 秒）。"), timeoutSeconds);
+        result.error = message;
+        _aligned_free(raw);
+        return true;
     }
 
     if (write && ok)
@@ -327,12 +360,12 @@ bool RunBenchmark(const BenchmarkConfig& config, const std::atomic_bool& cancel,
 
         BenchmarkResult result;
         if (!RunStage(file.handle, stage.name, stage.bytes, stage.block, stage.write, stage.sequential,
-            seed++, cancel, callback, completed, totalBytes, result, error))
+            seed++, cancel, config.timeoutSeconds, callback, completed, totalBytes, result, error))
         {
             return SendError(callback, std::wstring(stage.name) + Tr(L"：") + error, &result);
         }
 
-        completed += stage.bytes;
+        completed += result.bytes;
         update.percent = totalBytes == 0 ? 100 : static_cast<int>(completed * 100 / totalBytes);
         update.stage = stage.name;
         update.result = result;

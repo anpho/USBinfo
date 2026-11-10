@@ -114,3 +114,6 @@
 { L"当前 -- MB/s", L"Current -- MB/s", L"Actuel -- MB/s", L"Aktuell -- MB/s", L"Actual -- MB/s", L"現在 -- MB/s", L"현재 -- MB/s", L"Текущая -- MB/s" },
 { L"平均 -- MB/s", L"Average -- MB/s", L"Moyenne -- MB/s", L"Durchschnitt -- MB/s", L"Media -- MB/s", L"平均 -- MB/s", L"평균 -- MB/s", L"Средняя -- MB/s" },
 { L"等待测速…", L"Waiting for the speed test…", L"En attente du test de vitesse…", L"Warten auf Geschwindigkeitstest…", L"En espera de la prueba de velocidad…", L"速度テストを待機しています…", L"속도 테스트 대기 중…", L"Ожидание теста скорости…" },
+{ L"每项超时:", L"Timeout:", L"Délai :", L"Timeout:", L"Tiempo:", L"タイムアウト:", L"제한 시간:", L"Тайм-аут:" },
+{ L"%u 秒", L"%u sec", L"%u s", L"%u s", L"%u s", L"%u 秒", L"%u초", L"%u с" },
+{ L"无限制", L"Unlimited", L"Illimité", L"Unbegrenzt", L"Ilimitado", L"無制限", L"무제한", L"Без ограничения" },

@@ -383,3 +383,4 @@
 { L"虚拟", L"Virtual", L"Virtuel", L"Virtuell", L"Virtual", L"仮想", L"가상", L"Виртуальный" },
 { L"文件虚拟", L"File-backed virtual", L"Virtuel basé sur fichier", L"Dateibasiert virtuell", L"Virtual basado en archivo", L"ファイルベースの仮想", L"파일 기반 가상", L"Виртуальный на основе файла" },
 { L"USB 桥接", L"USB bridge", L"Pont USB", L"USB-Bridge", L"Puente USB", L"USB ブリッジ", L"USB 브리지", L"Мост USB" },
+{ L"本项测试超时（%u 秒）。", L"Test timed out after %u seconds.", L"Test expiré après %u secondes.", L"Test nach %u Sekunden abgelaufen.", L"Prueba agotada tras %u segundos.", L"%u 秒でタイムアウトしました。", L"%u초 후 시간 초과되었습니다.", L"Время теста истекло через %u с." },

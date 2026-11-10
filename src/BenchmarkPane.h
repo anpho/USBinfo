@@ -50,12 +50,15 @@ private:
     void SetRunningUi(bool running);
     void ResetChart(const std::wstring& title, const std::wstring& message);
     void RebuildVolumeCombo(bool preserveSelection);
+    void RebuildTimeoutCombo();
 
     CStatic m_targetLabel;
     CStatic m_volumeLabel;
     CComboBox m_volume;
     CStatic m_sizeLabel;
     CComboBox m_size;
+    CStatic m_timeoutLabel;
+    CComboBox m_timeout;
     CButton m_start;
     CButton m_cancel;
     CProgressBarCtrl m_progress;

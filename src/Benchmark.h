@@ -9,6 +9,8 @@ struct BenchmarkConfig
     uint32_t largeBlock = 1024 * 1024;
     uint64_t smallBytes = 32ull * 1024 * 1024;
     uint32_t smallBlock = 4096;
+    // 0 = unlimited. Applies to each benchmark stage, not to the whole run.
+    uint32_t timeoutSeconds = 0;
 };
 
 struct BenchmarkResult
@@ -22,6 +24,7 @@ struct BenchmarkResult
     bool write = false;
     bool sequential = false;
     bool ok = false;
+    bool timedOut = false;
     std::wstring error;
 };
 

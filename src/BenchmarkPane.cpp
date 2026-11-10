@@ -92,6 +92,15 @@ std::wstring TargetDisplayLabel(const StorageInfo& storage)
     return target;
 }
 
+std::wstring TimeoutText(uint32_t seconds)
+{
+    if (seconds == 0)
+        return Tr(L"无限制");
+    wchar_t buffer[64] = {};
+    swprintf_s(buffer, Tr(L"%u 秒"), seconds);
+    return buffer;
+}
+
 bool TextContainsAny(const std::wstring& value, const wchar_t* source)
 {
     if (ContainsNoCase(value, source))
@@ -193,6 +202,12 @@ int CBenchmarkPane::OnCreate(LPCREATESTRUCT)
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, 0, IDC_BENCH_SIZE);
     m_size.SetFont(m_font);
 
+    m_timeoutLabel.Create(m_hWnd, rcDefault, Tr(L"每项超时:"), WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0);
+    m_timeoutLabel.SetFont(m_font);
+    m_timeout.Create(m_hWnd, rcDefault, nullptr,
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, 0, IDC_BENCH_TIMEOUT);
+    m_timeout.SetFont(m_font);
+
     m_start.Create(m_hWnd, rcDefault, Tr(L"开始测速"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
         0, IDC_BENCH_START);
     m_start.SetFont(m_font);
@@ -239,6 +254,7 @@ int CBenchmarkPane::OnCreate(LPCREATESTRUCT)
     m_size.SetItemData(2, 512);
     m_size.SetItemData(3, 1024);
     m_size.SetCurSel(1);
+    RebuildTimeoutCombo();
 
     LayoutChildren();
     SetRunningUi(false);
@@ -303,13 +319,17 @@ void CBenchmarkPane::LayoutChildren()
     y += ScaleForWindow(m_hWnd, 30);
 
     int volumeWidth = std::min(ScaleForWindow(m_hWnd, 240),
-        std::max(ScaleForWindow(m_hWnd, 130), width - ScaleForWindow(m_hWnd, 276)));
+        std::max(ScaleForWindow(m_hWnd, 120), width - ScaleForWindow(m_hWnd, 460)));
     m_volumeLabel.MoveWindow(margin, y + 3, ScaleForWindow(m_hWnd, 64), rowHeight);
     m_volume.MoveWindow(margin + ScaleForWindow(m_hWnd, 66), y, volumeWidth, ScaleForWindow(m_hWnd, 200));
 
     int sizeX = margin + ScaleForWindow(m_hWnd, 66) + volumeWidth + ScaleForWindow(m_hWnd, 12);
     m_sizeLabel.MoveWindow(sizeX, y + 3, ScaleForWindow(m_hWnd, 82), rowHeight);
     m_size.MoveWindow(sizeX + ScaleForWindow(m_hWnd, 84), y, ScaleForWindow(m_hWnd, 96), ScaleForWindow(m_hWnd, 180));
+
+    int timeoutX = sizeX + ScaleForWindow(m_hWnd, 84) + ScaleForWindow(m_hWnd, 96) + ScaleForWindow(m_hWnd, 12);
+    m_timeoutLabel.MoveWindow(timeoutX, y + 3, ScaleForWindow(m_hWnd, 82), rowHeight);
+    m_timeout.MoveWindow(timeoutX + ScaleForWindow(m_hWnd, 84), y, ScaleForWindow(m_hWnd, 88), ScaleForWindow(m_hWnd, 180));
     y += ScaleForWindow(m_hWnd, 36);
 
     m_start.MoveWindow(static_cast<int>(client.right) - margin - buttonWidth * 2 - gap,
@@ -377,6 +397,36 @@ void CBenchmarkPane::ResetChart(const std::wstring& title, const std::wstring& m
     m_chart.Clear(title);
     if (!message.empty())
         m_chart.SetMessage(message);
+}
+
+void CBenchmarkPane::RebuildTimeoutCombo()
+{
+    if (!::IsWindow(m_timeout))
+        return;
+    uint32_t selected = 0;
+    const int current = m_timeout.GetCurSel();
+    if (current >= 0)
+        selected = static_cast<uint32_t>(m_timeout.GetItemData(current));
+
+    m_timeout.ResetContent();
+    const uint32_t values[] = { 3, 5, 10, 0 };
+    for (uint32_t value : values)
+    {
+        const int index = m_timeout.AddString(TimeoutText(value).c_str());
+        if (index >= 0)
+            m_timeout.SetItemData(index, value);
+    }
+
+    int defaultIndex = 0;
+    for (int i = 0; i < m_timeout.GetCount(); ++i)
+    {
+        if (m_timeout.GetItemData(i) == selected)
+        {
+            defaultIndex = i;
+            break;
+        }
+    }
+    m_timeout.SetCurSel(defaultIndex);
 }
 
 void CBenchmarkPane::SetTarget(const StorageInfo* storage)
@@ -509,6 +559,7 @@ void CBenchmarkPane::RefreshLanguage()
 
     m_volumeLabel.SetWindowText(Tr(L"测试卷:"));
     m_sizeLabel.SetWindowText(Tr(L"大文件大小:"));
+    m_timeoutLabel.SetWindowText(Tr(L"每项超时:"));
     m_start.SetWindowText(Tr(L"开始测速"));
     m_cancel.SetWindowText(Tr(L"取消"));
     m_warning.SetWindowText(Tr(L"测速会在所选卷上创建临时文件，仅通过文件系统写入，不会直接写裸盘；测试完成后自动删除。"
@@ -542,6 +593,7 @@ void CBenchmarkPane::RefreshLanguage()
     }
 
     m_chart.RefreshLanguage();
+    RebuildTimeoutCombo();
     SetRunningUi(m_running);
     LayoutChildren();
 }
@@ -564,6 +616,7 @@ void CBenchmarkPane::SetRunningUi(bool running)
     m_cancel.EnableWindow(running);
     m_volume.EnableWindow(!running);
     m_size.EnableWindow(!running);
+    m_timeout.EnableWindow(!running);
 }
 
 LRESULT CBenchmarkPane::OnStart(WORD, WORD, HWND, BOOL&)
@@ -591,12 +644,18 @@ LRESULT CBenchmarkPane::OnStart(WORD, WORD, HWND, BOOL&)
     if (largeMb < 32)
         largeMb = 32;
 
+    uint32_t timeoutSeconds = 0;
+    const int timeoutSelection = m_timeout.GetCurSel();
+    if (timeoutSelection >= 0)
+        timeoutSeconds = static_cast<uint32_t>(m_timeout.GetItemData(timeoutSelection));
+
     BenchmarkConfig config;
     config.volumeRoot = volume.rootPath;
     config.largeBytes = largeMb * 1024ull * 1024ull;
     config.largeBlock = 1024 * 1024;
     config.smallBytes = std::min<uint64_t>(32ull * 1024 * 1024, config.largeBytes);
     config.smallBlock = 4096;
+    config.timeoutSeconds = timeoutSeconds;
     const uint64_t smallMb = config.smallBytes / (1024ull * 1024ull);
 
     wchar_t question[2048] = {};
@@ -609,7 +668,12 @@ LRESULT CBenchmarkPane::OnStart(WORD, WORD, HWND, BOOL&)
         volume.rootPath.c_str(),
         static_cast<unsigned long long>(largeMb),
         static_cast<unsigned long long>(smallMb));
-    if (::MessageBoxW(m_hWnd, question, Tr(L"USBInfo 测速确认"),
+    std::wstring questionText = question;
+    questionText += L"\n";
+    questionText += Tr(L"每项超时:");
+    questionText += L" ";
+    questionText += TimeoutText(timeoutSeconds);
+    if (::MessageBoxW(m_hWnd, questionText.c_str(), Tr(L"USBInfo 测速确认"),
         MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) != IDYES)
         return 0;
 
@@ -803,7 +867,11 @@ void CBenchmarkPane::AddResult(const BenchmarkResult& result)
     m_results.SetItemText(row, 3, FormatRate(result.mbps).c_str());
     m_results.SetItemText(row, 4, FormatIops(result.iops).c_str());
     m_results.SetItemText(row, 5, FormatLatency(result.latencyMs).c_str());
-    std::wstring status = result.ok ? Tr(L"完成") : (result.error.empty() ? Tr(L"失败") : result.error);
+    std::wstring status;
+    if (result.timedOut)
+        status = result.error.empty() ? Tr(L"超时") : result.error;
+    else
+        status = result.ok ? Tr(L"完成") : (result.error.empty() ? Tr(L"失败") : result.error);
     m_results.SetItemText(row, 6, status.c_str());
     m_results.EnsureVisible(row, FALSE);
 }
