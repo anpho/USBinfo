@@ -5,7 +5,6 @@ Windows USB topology, hub, storage, SMART and throughput viewer built with **C++
 > 中文：Windows 下的 USB 拓扑、HUB、存储、SMART 与读写测速查看器。
 
 [![PR Build](https://github.com/anpho/USBinfo/actions/workflows/pr-build.yml/badge.svg)](https://github.com/anpho/USBinfo/actions/workflows/pr-build.yml)
-[![Pages](https://github.com/anpho/USBinfo/actions/workflows/pages.yml/badge.svg)](https://github.com/anpho/USBinfo/actions/workflows/pages.yml)
 
 [Landing page](https://anpho.github.io/USBinfo/) · [Download](https://github.com/anpho/USBinfo/releases) · [Source](https://github.com/anpho/USBinfo)
 
@@ -90,7 +89,7 @@ yyyy.MM.dd.buildnumber
 
 `buildnumber` is the monotonically increasing GitHub Actions run number. The workflow calls `tools/set-version.ps1` to update `src/Version.h`, detects the available toolset (`v145` on VS 2026 runners, `v143` on VS 2022 runners), builds with `vswhere`/MSBuild, compresses the Release executable with UPX (`--best --lzma`), runs a smoke test, and uploads `USBInfo-<version>-x64.zip` as an artifact.
 
-`.github/workflows/pages.yml` deploys the static landing page in `docs/` to GitHub Pages. In the repository settings, set **Pages → Build and deployment → Source** to **GitHub Actions** once.
+GitHub Pages serves the static landing page directly from `docs/`. In the repository settings, set **Pages → Build and deployment → Source** to **Deploy from a branch**, then choose branch **main** and folder **/docs**. No Pages Actions workflow is required.
 
 ## Project layout
 
@@ -114,7 +113,7 @@ src/
   Util.*                   formatting helpers
   Version.h                generated version macros
 tools/set-version.ps1      CI version writer
-.github/workflows/         PR build and Pages workflows
+.github/workflows/         PR build workflow
 third_party/wtl/           WTL 10 (MS-PL)
 docs/index.html            single-page landing page
 docs/screenshot*.png       product screenshots

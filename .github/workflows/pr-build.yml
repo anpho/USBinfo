@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Compute version
         id: version
@@ -38,7 +38,7 @@ jobs:
         run: pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/set-version.ps1 -Version "${{ steps.version.outputs.version }}"
 
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       - name: Select Visual C++ toolset
         id: toolset
@@ -98,7 +98,7 @@ jobs:
           Write-Host "Packaged $zip"
 
       - name: Upload release artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: USBInfo-${{ steps.version.outputs.version }}-x64
           path: ${{ steps.package.outputs.zip }}
