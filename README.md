@@ -342,16 +342,4 @@ A: 菜单 **查看 → Language**，可选“自动（系统）”或 8 种语�
 
 ## 9. 许可
 
-本项目代码可自由用于学习和内部工具。第三方 WTL 按 MS-PL 许可使用，见 `third_party/wtl/MS-PL.txt`。
-
-## 10. 上游仓库
-
-```text
-git@github.com:anpho/USBinfo.git
-```
-
-```bat
-git remote add origin git@github.com:anpho/USBinfo.git
-git push -u origin main
-```
-
+MIT. 本项目代码可自由用于学习和内部工具。第三方 WTL 按 MS-PL 许可使用，见 `third_party/wtl/MS-PL.txt`。
