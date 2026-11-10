@@ -34,6 +34,7 @@
 #include <shellapi.h>
 #include <shlobj.h>
 #include <shlwapi.h>
+#include <shldisp.h>
 #include <objbase.h>
 #include <propidl.h>
 
