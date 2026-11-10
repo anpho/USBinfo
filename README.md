@@ -85,7 +85,7 @@ Benchmarks write only a temporary file on the selected volume, never directly to
 yyyy.MM.dd.buildnumber
 ```
 
-`buildnumber` is the monotonically increasing GitHub Actions run number. The workflow calls `tools/set-version.ps1` to update `src/Version.h`, detects the available toolset (`v145` on VS 2026 runners, `v143` on VS 2022 runners), builds with `vswhere`/MSBuild, and uploads `USBInfo-<version>-x64.zip` as an artifact.
+`buildnumber` is the monotonically increasing GitHub Actions run number. The workflow calls `tools/set-version.ps1` to update `src/Version.h`, detects the available toolset (`v145` on VS 2026 runners, `v143` on VS 2022 runners), builds with `vswhere`/MSBuild, compresses the Release executable with UPX (`--best --lzma`), runs a smoke test, and uploads `USBInfo-<version>-x64.zip` as an artifact.
 
 ## Project layout
 

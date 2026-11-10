@@ -15,16 +15,12 @@ constexpr wchar_t kWebsiteUrl[] = L"https://github.com/anpho/USBinfo";
 
 void OpenProjectHomepage()
 {
-    // Keep this intentionally simple: let the shell resolve the default
-    // browser/association for the project URL.
-    HINSTANCE result = ::ShellExecuteW(nullptr, L"open", kWebsiteUrl, nullptr, nullptr, SW_SHOWNORMAL);
-    if (reinterpret_cast<INT_PTR>(result) <= 32)
-    {
-        std::wstring message = Tr(L"网页：");
-        message += L"\n";
-        message += kWebsiteUrl;
-        ::MessageBoxW(nullptr, message.c_str(), L"USBInfo", MB_OK | MB_ICONWARNING);
-    }
+    SHELLEXECUTEINFOW info = {};
+    info.cbSize = sizeof(info);
+    info.lpVerb = L"open";
+    info.lpFile = kWebsiteUrl;
+    info.nShow = SW_SHOWNORMAL;
+    ::ShellExecuteExW(&info);
 }
 
 struct LanguageMenuEntry

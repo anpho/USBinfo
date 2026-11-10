@@ -60,6 +60,30 @@ jobs:
           /p:Platform=x64
           /p:PlatformToolset=${{ steps.toolset.outputs.toolset }}
 
+      - name: Compress with UPX
+        shell: pwsh
+        run: |
+          $upxVersion = "5.3.0"
+          $archive = Join-Path $env:RUNNER_TEMP "upx.zip"
+          $upxDir = Join-Path $env:RUNNER_TEMP "upx"
+          Invoke-WebRequest -Uri "https://github.com/upx/upx/releases/download/v$upxVersion/upx-$upxVersion-win64.zip" -OutFile $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $upxDir -Force
+          $upx = Get-ChildItem $upxDir -Recurse -Filter upx.exe | Select-Object -First 1
+          if (-not $upx) { throw "UPX executable not found." }
+          & $upx.FullName --best --lzma "bin\Release\USBInfo.exe"
+          if ($LASTEXITCODE -ne 0) { throw "UPX compression failed with exit code $LASTEXITCODE." }
+          & $upx.FullName --test "bin\Release\USBInfo.exe"
+          if ($LASTEXITCODE -ne 0) { throw "UPX verification failed with exit code $LASTEXITCODE." }
+          $report = Join-Path $env:RUNNER_TEMP "upx-smoke-report.txt"
+          $exePath = (Resolve-Path "bin\Release\USBInfo.exe").Path
+          $process = Start-Process -FilePath $exePath -ArgumentList @("--report", $report) -Wait -PassThru
+          if ($process.ExitCode -ne 0 -or -not (Test-Path $report)) {
+            throw "UPX-compressed USBInfo.exe failed the report smoke test."
+          }
+          Remove-Item $report -Force
+          $size = (Get-Item "bin\Release\USBInfo.exe").Length
+          Write-Host ("UPX size: {0:N0} bytes" -f $size)
+
       - name: Package release
         id: package
         shell: pwsh
@@ -89,4 +113,5 @@ jobs:
           - Configuration: Release x64
           - Artifact: ${{ steps.package.outputs.zip }}
           - Version format: yyyy.MM.dd.buildnumber
+          - UPX: --best --lzma
           "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
