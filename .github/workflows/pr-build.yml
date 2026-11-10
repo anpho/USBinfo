@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: pr-build-${{ github.ref }}
@@ -104,6 +104,29 @@ jobs:
           path: ${{ steps.package.outputs.zip }}
           if-no-files-found: error
 
+      - name: Create draft release
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $tag = "v$version"
+          $zip = "${{ steps.package.outputs.zip }}"
+          gh release view $tag 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) { $tag = "$tag-r${{ github.run_attempt }}" }
+          $notes = Join-Path $env:RUNNER_TEMP "release-notes.md"
+          $body = @"
+          Draft build for PR #${{ github.event.pull_request.number }}
+
+          - Version: $version
+          - Commit: ${{ github.sha }}
+          - Configuration: Release x64
+          - Compression: UPX --best --lzma
+          "@
+          [System.IO.File]::WriteAllText($notes, $body, (New-Object System.Text.UTF8Encoding($false)))
+          gh release create $tag $zip --draft --title "USBInfo $version (PR #${{ github.event.pull_request.number }})" --notes-file $notes --target "${{ github.sha }}"
+
       - name: Write summary
         shell: pwsh
         run: |
@@ -113,5 +136,6 @@ jobs:
           - Configuration: Release x64
           - Artifact: ${{ steps.package.outputs.zip }}
           - Version format: yyyy.MM.dd.buildnumber
+          - Draft release: v${{ steps.version.outputs.version }} (same-repo PRs)
           - UPX: --best --lzma
           "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8

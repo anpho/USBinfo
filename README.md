@@ -89,6 +89,8 @@ yyyy.MM.dd.buildnumber
 
 `buildnumber` is the monotonically increasing GitHub Actions run number. The workflow calls `tools/set-version.ps1` to update `src/Version.h`, detects the available toolset (`v145` on VS 2026 runners, `v143` on VS 2022 runners), builds with `vswhere`/MSBuild, compresses the Release executable with UPX (`--best --lzma`), runs a smoke test, and uploads `USBInfo-<version>-x64.zip` as an artifact.
 
+For pull requests opened from a branch in this repository, the workflow also creates a **draft GitHub Release** tagged `v<version>` and attaches the zip. Fork PRs still produce the Actions artifact, but skip release creation because the default `GITHUB_TOKEN` is read-only for fork events.
+
 GitHub Pages serves the static landing page directly from `docs/`. In the repository settings, set **Pages → Build and deployment → Source** to **Deploy from a branch**, then choose branch **main** and folder **/docs**. No Pages Actions workflow is required.
 
 ## Project layout
