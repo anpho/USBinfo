@@ -44,4 +44,14 @@
 #define ID_VIEW_EXPAND_ALL        40010
 #define ID_VIEW_COLLAPSE_ALL      40011
 #define ID_VIEW_ELEVATE           40012
-#define ID_HELP_ABOUT             40020
+#define ID_VIEW_LANGUAGE_AUTO     40020
+#define ID_VIEW_LANGUAGE_ZH       40021
+#define ID_VIEW_LANGUAGE_EN       40022
+#define ID_VIEW_LANGUAGE_FR       40023
+#define ID_VIEW_LANGUAGE_DE       40024
+#define ID_VIEW_LANGUAGE_ES       40025
+#define ID_VIEW_LANGUAGE_JA       40026
+#define ID_VIEW_LANGUAGE_KO       40027
+#define ID_VIEW_LANGUAGE_RU       40028
+#define ID_HELP_WEBSITE           40030
+#define ID_HELP_ABOUT             40031

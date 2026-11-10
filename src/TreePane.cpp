@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "TreePane.h"
 #include "Messages.h"
+#include "Language.h"
 
 #include <uxtheme.h>
 
@@ -222,10 +223,10 @@ int CTreePane::OnCreate(LPCREATESTRUCT)
     m_font = AtlCreateControlFont();
     m_boldFont = AtlCreateBoldFont(m_font);
 
-    m_header.Create(m_hWnd, rcDefault, L"USB 拓扑", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0);
+    m_header.Create(m_hWnd, rcDefault, Tr(L"USB 拓扑"), WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0);
     m_header.SetFont(m_boldFont);
 
-    m_refresh.Create(m_hWnd, rcDefault, L"刷新", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, ID_FILE_REFRESH);
+    m_refresh.Create(m_hWnd, rcDefault, Tr(L"刷新"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 0, ID_FILE_REFRESH);
     m_refresh.SetFont(m_font);
 
     m_tree.Create(m_hWnd, rcDefault, nullptr,
@@ -299,7 +300,9 @@ void CTreePane::LayoutChildren()
     ::GetClientRect(m_hWnd, &client);
     const int headerHeight = ScaleForWindow(m_hWnd, 38);
     const int margin = ScaleForWindow(m_hWnd, 8);
-    const int buttonWidth = ScaleForWindow(m_hWnd, 72);
+    // Wider than the original 72 px so translated button labels such as
+    // "Aktualisieren" / "Actualizar" are not clipped.
+    const int buttonWidth = ScaleForWindow(m_hWnd, 100);
     const int buttonHeight = ScaleForWindow(m_hWnd, 26);
 
     m_header.MoveWindow(margin, 0, std::max(10, static_cast<int>(client.right) - buttonWidth - margin * 2), headerHeight);
@@ -333,7 +336,7 @@ void CTreePane::SetSnapshot(std::shared_ptr<const UsbSnapshot> snapshot)
     if (m_snapshot != nullptr && m_snapshot->computerId >= 0)
         SelectNode(m_snapshot->computerId);
     else
-        m_header.SetWindowText(L"未发现 USB 设备");
+        m_header.SetWindowText(Tr(L"未发现 USB 设备"));
 }
 
 void CTreePane::SetScanning(bool scanning)
@@ -341,17 +344,57 @@ void CTreePane::SetScanning(bool scanning)
     m_scanning = scanning;
     if (scanning)
     {
-        m_header.SetWindowText(L"正在扫描 USB 拓扑…");
+        m_header.SetWindowText(Tr(L"正在扫描 USB 拓扑…"));
         return;
     }
     if (m_snapshot != nullptr)
     {
-        m_header.SetWindowText(L"USB 拓扑");
+        m_header.SetWindowText(Tr(L"USB 拓扑"));
     }
     else
     {
-        m_header.SetWindowText(L"USB 拓扑");
+        m_header.SetWindowText(Tr(L"未发现 USB 设备"));
     }
+}
+
+void CTreePane::RefreshLanguage()
+{
+    if (!::IsWindow(m_hWnd))
+        return;
+
+    if (::IsWindow(m_refresh))
+        m_refresh.SetWindowText(Tr(L"刷新"));
+
+    if (m_scanning)
+    {
+        m_header.SetWindowText(Tr(L"正在扫描 USB 拓扑…"));
+        return;
+    }
+    if (m_snapshot == nullptr)
+    {
+        m_header.SetWindowText(Tr(L"未发现 USB 设备"));
+        return;
+    }
+
+    // Re-translate the existing items in place. Rebuilding the whole tree here
+    // would destroy and recreate every HTREEITEM and can upset the common
+    // control while a selection change is in flight.
+    if (m_snapshot == nullptr)
+        return;
+    for (const auto& entry : m_items)
+    {
+        const UsbNode* node = m_snapshot->Find(entry.first);
+        if (node == nullptr)
+            continue;
+        std::wstring title = node->kind == NodeKind::Computer ? Tr(L"本机 USB 拓扑") : BuildNodeTitle(*node);
+        m_tree.SetItemText(entry.second, title.c_str());
+    }
+
+    if (m_tree.GetSelectedItem() == nullptr && m_snapshot->computerId >= 0)
+        SelectNode(m_snapshot->computerId);
+
+    m_header.SetWindowText(Tr(L"USB 拓扑"));
+    m_tree.Invalidate();
 }
 
 void CTreePane::RebuildTree()
@@ -378,7 +421,7 @@ void CTreePane::RebuildTree()
 
     if (m_snapshot != nullptr)
     {
-        m_header.SetWindowText(L"USB 拓扑");
+        m_header.SetWindowText(Tr(L"USB 拓扑"));
     }
 }
 

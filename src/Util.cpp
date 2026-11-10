@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Model.h"
+#include "Language.h"
 
 #include <cwctype>
 #include <cstdio>
@@ -14,7 +15,7 @@ std::wstring LoadStringResource(UINT id)
 std::wstring GetLastErrorMessage(DWORD error)
 {
     if (error == ERROR_SUCCESS)
-        return L"成功";
+        return Tr(L"成功");
     wchar_t* buffer = nullptr;
     DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
     DWORD length = ::FormatMessageW(flags, nullptr, error, 0, reinterpret_cast<LPWSTR>(&buffer), 0, nullptr);
@@ -28,7 +29,7 @@ std::wstring GetLastErrorMessage(DWORD error)
     if (buffer != nullptr)
         ::LocalFree(buffer);
     if (result.empty())
-        result = L"错误 " + std::to_wstring(error);
+        result = std::wstring(Tr(L"错误")) + L" " + std::to_wstring(error);
     else
         result += L" (" + std::to_wstring(error) + L")";
     return result;
@@ -221,18 +222,18 @@ std::wstring FormatBytesShort(uint64_t bytes)
 std::wstring FormatBytes(uint64_t bytes)
 {
     if (bytes == 0)
-        return L"0 字节";
+        return std::wstring(L"0 ") + Tr(L"字节");
     std::wstring shortText = FormatBytesShort(bytes);
     if (bytes < 1024)
         return shortText;
-    return shortText + L" (" + FormatNumber(bytes) + L" 字节)";
+    return shortText + L" (" + FormatNumber(bytes) + L" " + Tr(L"字节") + L")";
 }
 
 std::wstring FormatSpeed(uint32_t mbps)
 {
     switch (mbps)
     {
-    case 0:      return L"未知";
+    case 0:      return Tr(L"未知");
     case 1:      return L"1.5 Mbps (Low Speed)";
     case 12:     return L"12 Mbps (Full Speed)";
     case 480:    return L"480 Mbps (High Speed)";
@@ -278,33 +279,31 @@ std::wstring UsbClassName(int classCode)
 {
     switch (classCode)
     {
-    case 0x00: return L"由接口定义";
-    case 0x01: return L"音频 (Audio)";
-    case 0x02: return L"通信 (CDC)";
-    case 0x03: return L"人机接口 (HID)";
-    case 0x05: return L"物理设备";
-    case 0x06: return L"静态图像 (PTP/摄像头)";
-    case 0x07: return L"打印机";
-    case 0x08: return L"大容量存储 (Mass Storage)";
-    case 0x09: return L"USB HUB";
-    case 0x0A: return L"CDC 数据";
-    case 0x0B: return L"智能卡";
-    case 0x0D: return L"内容安全";
-    case 0x0E: return L"视频 (UVC)";
-    case 0x0F: return L"个人健康";
-    case 0x10: return L"音视频";
-    case 0x11: return L"USB Billboard";
-    case 0x12: return L"USB Type-C 桥接";
-    case 0xDC: return L"诊断设备";
-    case 0xE0: return L"无线控制器";
-    case 0xEF: return L"杂项 / 复合设备";
-    case 0xFE: return L"应用专用";
-    case 0xFF: return L"厂商自定义";
+    case 0x00: return Tr(L"由接口定义");
+    case 0x01: return Tr(L"音频 (Audio)");
+    case 0x02: return Tr(L"通信 (CDC)");
+    case 0x03: return Tr(L"人机接口 (HID)");
+    case 0x05: return Tr(L"物理设备");
+    case 0x06: return Tr(L"静态图像 (PTP/摄像头)");
+    case 0x07: return Tr(L"打印机");
+    case 0x08: return Tr(L"大容量存储 (Mass Storage)");
+    case 0x09: return Tr(L"USB HUB");
+    case 0x0A: return Tr(L"CDC 数据");
+    case 0x0B: return Tr(L"智能卡");
+    case 0x0D: return Tr(L"内容安全");
+    case 0x0E: return Tr(L"视频 (UVC)");
+    case 0x0F: return Tr(L"个人健康");
+    case 0x10: return Tr(L"音视频");
+    case 0x11: return Tr(L"USB Billboard");
+    case 0x12: return Tr(L"USB Type-C 桥接");
+    case 0xDC: return Tr(L"诊断设备");
+    case 0xE0: return Tr(L"无线控制器");
+    case 0xEF: return Tr(L"杂项 / 复合设备");
+    case 0xFE: return Tr(L"应用专用");
+    case 0xFF: return Tr(L"厂商自定义");
     default:
     {
-        wchar_t buffer[64] = {};
-        swprintf_s(buffer, L"类 0x%02X", classCode);
-        return buffer;
+        return std::wstring(Tr(L"类")) + L" " + FormatHex(classCode, 2);
     }
     }
 }
@@ -335,16 +334,16 @@ std::wstring NodeKindName(NodeKind kind)
 {
     switch (kind)
     {
-    case NodeKind::Computer:       return L"计算机";
-    case NodeKind::HostController: return L"USB 主机控制器";
-    case NodeKind::RootHub:        return L"USB 根集线器";
-    case NodeKind::Hub:            return L"USB Hub";
-    case NodeKind::Device:         return L"USB 设备";
-    case NodeKind::Interface:      return L"USB 复合接口";
-    case NodeKind::Storage:        return L"USB 存储设备";
-    case NodeKind::Cable:          return L"端口 / 线缆";
-    case NodeKind::Usb4:           return L"USB4 设备";
-    default:                       return L"设备";
+    case NodeKind::Computer:       return Tr(L"计算机");
+    case NodeKind::HostController: return Tr(L"USB 主机控制器");
+    case NodeKind::RootHub:        return Tr(L"USB 根集线器");
+    case NodeKind::Hub:            return Tr(L"USB Hub");
+    case NodeKind::Device:         return Tr(L"USB 设备");
+    case NodeKind::Interface:      return Tr(L"USB 复合接口");
+    case NodeKind::Storage:        return Tr(L"USB 存储设备");
+    case NodeKind::Cable:          return Tr(L"端口 / 线缆");
+    case NodeKind::Usb4:           return Tr(L"USB4 设备");
+    default:                       return Tr(L"设备");
     }
 }
 
@@ -352,15 +351,15 @@ std::wstring NodeKindShortName(NodeKind kind)
 {
     switch (kind)
     {
-    case NodeKind::Computer:       return L"计算机";
-    case NodeKind::HostController: return L"主控制器";
-    case NodeKind::RootHub:        return L"根集线器";
-    case NodeKind::Hub:            return L"Hub";
-    case NodeKind::Device:         return L"设备";
-    case NodeKind::Interface:      return L"接口";
-    case NodeKind::Storage:        return L"存储";
-    case NodeKind::Cable:          return L"连线";
-    case NodeKind::Usb4:           return L"USB4";
-    default:                       return L"设备";
+    case NodeKind::Computer:       return Tr(L"计算机");
+    case NodeKind::HostController: return Tr(L"主控制器");
+    case NodeKind::RootHub:        return Tr(L"根集线器");
+    case NodeKind::Hub:            return Tr(L"Hub");
+    case NodeKind::Device:         return Tr(L"设备");
+    case NodeKind::Interface:      return Tr(L"接口");
+    case NodeKind::Storage:        return Tr(L"存储");
+    case NodeKind::Cable:          return Tr(L"连线");
+    case NodeKind::Usb4:           return Tr(L"USB4");
+    default:                       return Tr(L"设备");
     }
 }

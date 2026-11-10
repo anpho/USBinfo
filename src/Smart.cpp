@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Smart.h"
 #include "DeviceProps.h"
+#include "Language.h"
 
 #include <winioctl.h>
 #include <ntddscsi.h>
@@ -12,92 +13,92 @@ const wchar_t* SmartAttributeName(int id)
 {
     switch (id)
     {
-    case 1:   return L"底层读取错误率";
-    case 2:   return L"吞吐量性能";
-    case 3:   return L"旋转时间";
-    case 4:   return L"启动/停止计数";
-    case 5:   return L"重映射扇区计数";
-    case 7:   return L"寻道错误率";
-    case 8:   return L"寻道时间性能";
-    case 9:   return L"通电时间";
-    case 10:  return L"主轴重试次数";
-    case 11:  return L"校准重试次数";
-    case 12:  return L"通电次数";
-    case 13:  return L"软读取错误率";
-    case 22:  return L"氦气液位";
-    case 23:  return L"磁头飞行高度";
-    case 24:  return L"磁头飞行小时";
-    case 25:  return L"读写比率";
-    case 170: return L"坏块计数";
-    case 171: return L"编程失败计数";
-    case 172: return L"擦除失败计数";
-    case 173: return L"平均擦写次数";
-    case 174: return L"意外断电计数";
-    case 175: return L"编程失败块";
-    case 176: return L"擦除失败块";
-    case 177: return L"磨损范围";
-    case 178: return L"保留块剩余";
-    case 179: return L"已用保留块";
-    case 180: return L"未使用保留块";
-    case 181: return L"程序失败计数";
-    case 182: return L"擦除失败计数";
-    case 183: return L"运行中止计数";
-    case 184: return L"端到端错误";
-    case 185: return L"磁头稳定性";
-    case 186: return L"飞行高度";
-    case 187: return L"可纠正错误";
-    case 188: return L"命令超时";
-    case 189: return L"高飞写";
-    case 190: return L"空气温度";
-    case 191: return L"冲击错误率";
-    case 192: return L"断电回收计数";
-    case 193: return L"负载循环计数";
-    case 194: return L"温度";
-    case 195: return L"硬件 ECC 恢复";
-    case 196: return L"重分配事件";
-    case 197: return L"当前待映射扇区";
-    case 198: return L"脱机不可修正扇区";
-    case 199: return L"UDMA CRC 错误";
-    case 200: return L"多区域错误率";
-    case 201: return L"软读取错误率";
-    case 202: return L"数据地址标记错误";
-    case 203: return L"运行中止";
-    case 204: return L"软 ECC 修正";
-    case 205: return L"热敏电阻错误";
-    case 206: return L"飞行高度";
-    case 207: return L"主轴高电流";
-    case 208: return L"旋转重试";
-    case 209: return L"离线寻道性能";
-    case 210: return L"VCM 电流";
-    case 211: return L"VCM 电流";
-    case 212: return L"冲击错误";
-    case 213: return L"震动错误";
-    case 220: return L"磁盘位移";
-    case 221: return L"G 感应错误率";
-    case 222: return L"加载/卸载重试";
-    case 223: return L"加载/卸载失败";
-    case 224: return L"加载摩擦";
-    case 225: return L"加载/卸载计数";
-    case 226: return L"加载时间";
-    case 227: return L"扭矩放大计数";
-    case 228: return L"断电回收";
-    case 230: return L"磁头寿命";
-    case 231: return L"剩余寿命";
-    case 232: return L"可用保留空间";
-    case 233: return L"介质磨损指示";
-    case 234: return L"平均擦除次数";
-    case 235: return L"良好块计数";
-    case 240: return L"磁头飞行时间";
-    case 241: return L"总 LBAs 写入";
-    case 242: return L"总 LBAs 读取";
-    case 243: return L"DRAM 读取回收";
-    case 244: return L"温度";
-    case 245: return L"剩余寿命";
-    case 250: return L"读取错误重试";
-    case 251: return L"最小擦除计数";
-    case 252: return L"最大擦除计数";
-    case 254: return L"空闲块计数";
-    case 255: return L"剩余寿命";
+    case 1:   return Tr(L"底层读取错误率");
+    case 2:   return Tr(L"吞吐量性能");
+    case 3:   return Tr(L"旋转时间");
+    case 4:   return Tr(L"启动/停止计数");
+    case 5:   return Tr(L"重映射扇区计数");
+    case 7:   return Tr(L"寻道错误率");
+    case 8:   return Tr(L"寻道时间性能");
+    case 9:   return Tr(L"通电时间");
+    case 10:  return Tr(L"主轴重试次数");
+    case 11:  return Tr(L"校准重试次数");
+    case 12:  return Tr(L"通电次数");
+    case 13:  return Tr(L"软读取错误率");
+    case 22:  return Tr(L"氦气液位");
+    case 23:  return Tr(L"磁头飞行高度");
+    case 24:  return Tr(L"磁头飞行小时");
+    case 25:  return Tr(L"读写比率");
+    case 170: return Tr(L"坏块计数");
+    case 171: return Tr(L"编程失败计数");
+    case 172: return Tr(L"擦除失败计数");
+    case 173: return Tr(L"平均擦写次数");
+    case 174: return Tr(L"意外断电计数");
+    case 175: return Tr(L"编程失败块");
+    case 176: return Tr(L"擦除失败块");
+    case 177: return Tr(L"磨损范围");
+    case 178: return Tr(L"保留块剩余");
+    case 179: return Tr(L"已用保留块");
+    case 180: return Tr(L"未使用保留块");
+    case 181: return Tr(L"程序失败计数");
+    case 182: return Tr(L"擦除失败计数");
+    case 183: return Tr(L"运行中止计数");
+    case 184: return Tr(L"端到端错误");
+    case 185: return Tr(L"磁头稳定性");
+    case 186: return Tr(L"飞行高度");
+    case 187: return Tr(L"可纠正错误");
+    case 188: return Tr(L"命令超时");
+    case 189: return Tr(L"高飞写");
+    case 190: return Tr(L"空气温度");
+    case 191: return Tr(L"冲击错误率");
+    case 192: return Tr(L"断电回收计数");
+    case 193: return Tr(L"负载循环计数");
+    case 194: return Tr(L"温度");
+    case 195: return Tr(L"硬件 ECC 恢复");
+    case 196: return Tr(L"重分配事件");
+    case 197: return Tr(L"当前待映射扇区");
+    case 198: return Tr(L"脱机不可修正扇区");
+    case 199: return Tr(L"UDMA CRC 错误");
+    case 200: return Tr(L"多区域错误率");
+    case 201: return Tr(L"软读取错误率");
+    case 202: return Tr(L"数据地址标记错误");
+    case 203: return Tr(L"运行中止");
+    case 204: return Tr(L"软 ECC 修正");
+    case 205: return Tr(L"热敏电阻错误");
+    case 206: return Tr(L"飞行高度");
+    case 207: return Tr(L"主轴高电流");
+    case 208: return Tr(L"旋转重试");
+    case 209: return Tr(L"离线寻道性能");
+    case 210: return Tr(L"VCM 电流");
+    case 211: return Tr(L"VCM 电流");
+    case 212: return Tr(L"冲击错误");
+    case 213: return Tr(L"震动错误");
+    case 220: return Tr(L"磁盘位移");
+    case 221: return Tr(L"G 感应错误率");
+    case 222: return Tr(L"加载/卸载重试");
+    case 223: return Tr(L"加载/卸载失败");
+    case 224: return Tr(L"加载摩擦");
+    case 225: return Tr(L"加载/卸载计数");
+    case 226: return Tr(L"加载时间");
+    case 227: return Tr(L"扭矩放大计数");
+    case 228: return Tr(L"断电回收");
+    case 230: return Tr(L"磁头寿命");
+    case 231: return Tr(L"剩余寿命");
+    case 232: return Tr(L"可用保留空间");
+    case 233: return Tr(L"介质磨损指示");
+    case 234: return Tr(L"平均擦除次数");
+    case 235: return Tr(L"良好块计数");
+    case 240: return Tr(L"磁头飞行时间");
+    case 241: return Tr(L"总 LBAs 写入");
+    case 242: return Tr(L"总 LBAs 读取");
+    case 243: return Tr(L"DRAM 读取回收");
+    case 244: return Tr(L"温度");
+    case 245: return Tr(L"剩余寿命");
+    case 250: return Tr(L"读取错误重试");
+    case 251: return Tr(L"最小擦除计数");
+    case 252: return Tr(L"最大擦除计数");
+    case 254: return Tr(L"空闲块计数");
+    case 255: return Tr(L"剩余寿命");
     default:  return nullptr;
     }
 }
@@ -108,7 +109,7 @@ std::wstring SmartAttributeNameOrId(int id)
     if (name != nullptr)
         return name;
     wchar_t buffer[32] = {};
-    swprintf_s(buffer, L"属性 0x%02X", id);
+    swprintf_s(buffer, Tr(L"属性 0x%02X"), id);
     return buffer;
 }
 
@@ -163,9 +164,9 @@ bool ParseSmartAttributes(const std::vector<BYTE>& data, StorageInfo& storage)
             item.raw = (item.raw << 8) | attr[byteIndex];
         item.rawText = FormatNumber(item.raw);
         item.threshold = -1;
-        item.status = L"正常";
+        item.status = Tr(L"正常");
         if (item.current == 0)
-            item.status = L"无效";
+            item.status = Tr(L"无效");
         attributes.push_back(std::move(item));
     }
     if (attributes.empty())
@@ -210,7 +211,7 @@ void ApplySmartStatus(StorageInfo& storage)
             warning = warning || attr.raw > 0;
         if (attr.current == 0)
             warning = false;
-        attr.status = warning ? L"注意" : L"正常";
+        attr.status = warning ? Tr(L"注意") : Tr(L"正常");
     }
 
     auto rawOf = [&storage](int id) -> uint64_t
@@ -223,7 +224,7 @@ void ApplySmartStatus(StorageInfo& storage)
     auto addExtra = [&storage](const wchar_t* key, const std::wstring& value)
     {
         if (!value.empty())
-            storage.smartExtra.emplace_back(key, value);
+            storage.smartExtra.emplace_back(Tr(key), value);
     };
 
     uint64_t temperature = rawOf(194);
@@ -237,7 +238,7 @@ void ApplySmartStatus(StorageInfo& storage)
     }
     uint64_t powerOn = rawOf(9);
     if (powerOn != 0)
-        addExtra(L"通电时间", FormatNumber(powerOn) + L" 小时");
+        addExtra(L"通电时间", FormatNumber(powerOn) + L" " + Tr(L"小时"));
     uint64_t powerCycles = rawOf(12);
     if (powerCycles != 0)
         addExtra(L"通电次数", FormatNumber(powerCycles));
@@ -386,7 +387,7 @@ bool ScsiAtaPassThrough(HANDLE disk, bool use16, BYTE features, BYTE sectorCount
 void AddSmartMessage(StorageInfo& storage, const std::wstring& message)
 {
     if (!storage.smartMessage.empty())
-        storage.smartMessage += L"；";
+        storage.smartMessage += Tr(L"；");
     storage.smartMessage += message;
 }
 
@@ -446,18 +447,18 @@ bool TryNvmeSmart(HANDLE disk, StorageInfo& storage, DWORD* errorCode)
     for (int i = 0; i < 8; ++i)
         mediaErrors |= static_cast<uint64_t>(data[160 + i]) << (8 * i);
 
-    storage.smartExtra.emplace_back(L"NVMe 关键警告", FormatHex(criticalWarning, 2));
-    storage.smartExtra.emplace_back(L"NVMe 温度", std::to_wstring(temperatureKelvin > 273 ? temperatureKelvin - 273 : 0) + L" °C");
-    storage.smartExtra.emplace_back(L"NVMe 可用备用空间", std::to_wstring(availableSpare) + L"%");
-    storage.smartExtra.emplace_back(L"NVMe 备用空间阈值", std::to_wstring(spareThreshold) + L"%");
-    storage.smartExtra.emplace_back(L"NVMe 已用寿命", std::to_wstring(percentageUsed) + L"%");
-    storage.smartExtra.emplace_back(L"数据单元读取", FormatNumber(dataUnitsRead));
-    storage.smartExtra.emplace_back(L"数据单元写入", FormatNumber(dataUnitsWritten));
-    storage.smartExtra.emplace_back(L"通电次数", FormatNumber(powerCycles));
-    storage.smartExtra.emplace_back(L"通电时间", FormatNumber(powerOnHours) + L" 小时");
-    storage.smartExtra.emplace_back(L"异常断电", FormatNumber(unsafeShutdowns));
-    storage.smartExtra.emplace_back(L"介质错误", FormatNumber(mediaErrors));
-    storage.health = criticalWarning == 0 ? L"NVMe SMART 正常" : L"NVMe SMART 警告";
+    storage.smartExtra.emplace_back(Tr(L"NVMe 关键警告"), FormatHex(criticalWarning, 2));
+    storage.smartExtra.emplace_back(Tr(L"NVMe 温度"), std::to_wstring(temperatureKelvin > 273 ? temperatureKelvin - 273 : 0) + L" °C");
+    storage.smartExtra.emplace_back(Tr(L"NVMe 可用备用空间"), std::to_wstring(availableSpare) + L"%");
+    storage.smartExtra.emplace_back(Tr(L"NVMe 备用空间阈值"), std::to_wstring(spareThreshold) + L"%");
+    storage.smartExtra.emplace_back(Tr(L"NVMe 已用寿命"), std::to_wstring(percentageUsed) + L"%");
+    storage.smartExtra.emplace_back(Tr(L"数据单元读取"), FormatNumber(dataUnitsRead));
+    storage.smartExtra.emplace_back(Tr(L"数据单元写入"), FormatNumber(dataUnitsWritten));
+    storage.smartExtra.emplace_back(Tr(L"通电次数"), FormatNumber(powerCycles));
+    storage.smartExtra.emplace_back(Tr(L"通电时间"), FormatNumber(powerOnHours) + L" " + Tr(L"小时"));
+    storage.smartExtra.emplace_back(Tr(L"异常断电"), FormatNumber(unsafeShutdowns));
+    storage.smartExtra.emplace_back(Tr(L"介质错误"), FormatNumber(mediaErrors));
+    storage.health = criticalWarning == 0 ? Tr(L"NVMe SMART 正常") : Tr(L"NVMe SMART 警告");
     storage.smartAvailable = true;
     storage.smartStatus = storage.health;
     return true;
@@ -493,8 +494,8 @@ bool ReadSmartData(HANDLE diskHandle, StorageInfo& storage)
     if (diskHandle == nullptr || diskHandle == INVALID_HANDLE_VALUE)
     {
         storage.smartQueried = true;
-        storage.smartStatus = L"不可用";
-        storage.smartMessage = L"没有可用的磁盘句柄；请以管理员身份运行或检查设备访问权限。";
+        storage.smartStatus = Tr(L"不可用");
+        storage.smartMessage = Tr(L"没有可用的磁盘句柄；请以管理员身份运行或检查设备访问权限。");
         return false;
     }
 
@@ -508,7 +509,7 @@ bool ReadSmartData(HANDLE diskHandle, StorageInfo& storage)
     if (::DeviceIoControl(diskHandle, IOCTL_STORAGE_PREDICT_FAILURE, nullptr, 0, &predict, sizeof(predict), &returned, nullptr))
     {
         predictSucceeded = true;
-        storage.health = predict.PredictFailure ? L"SMART 预测故障" : L"SMART 正常";
+        storage.health = predict.PredictFailure ? Tr(L"SMART 预测故障") : Tr(L"SMART 正常");
         storage.smartStatus = storage.health;
         std::vector<BYTE> data = SmartSectorFromPredict(predict);
         if (ParseSmartAttributes(data, storage))
@@ -568,11 +569,11 @@ bool ReadSmartData(HANDLE diskHandle, StorageInfo& storage)
         ApplySmartStatus(storage);
         storage.smartAvailable = true;
         if (storage.health.empty())
-            storage.health = L"SMART 数据已读取";
+            storage.health = Tr(L"SMART 数据已读取");
         if (storage.smartStatus.empty())
             storage.smartStatus = storage.health;
         if (storage.smartMessage.empty())
-            storage.smartMessage = L"SMART 数据来自 ATA 属性表。";
+            storage.smartMessage = Tr(L"SMART 数据来自 ATA 属性表。");
         return true;
     }
 
@@ -584,16 +585,16 @@ bool ReadSmartData(HANDLE diskHandle, StorageInfo& storage)
     if (predictSucceeded)
     {
         storage.smartStatus = storage.health;
-        storage.smartMessage = L"已读取预测故障状态，但此设备未返回 SMART 属性表（常见于 USB 闪存盘/桥接器）。";
+        storage.smartMessage = Tr(L"已读取预测故障状态，但此设备未返回 SMART 属性表（常见于 USB 闪存盘/桥接器）。");
         return true;
     }
 
-    storage.smartStatus = L"不可用";
-    storage.smartMessage = L"设备未返回 SMART 数据。";
+    storage.smartStatus = Tr(L"不可用");
+    storage.smartMessage = Tr(L"设备未返回 SMART 数据。");
     if (!IsProcessElevated())
-        storage.smartMessage += L" 请以管理员身份运行后重试。";
+        storage.smartMessage += std::wstring(L" ") + Tr(L"请以管理员身份运行后重试。");
     else if (lastError != ERROR_SUCCESS)
-        storage.smartMessage += L" 最后错误：" + GetLastErrorMessage(lastError);
-    storage.smartMessage += L" USB 大容量存储桥接器通常不会透传 ATA/NVMe SMART。";
+        storage.smartMessage += std::wstring(L" ") + Tr(L"最后错误") + L": " + GetLastErrorMessage(lastError);
+    storage.smartMessage += std::wstring(L" ") + Tr(L"USB 大容量存储桥接器通常不会透传 ATA/NVMe SMART。");
     return false;
 }

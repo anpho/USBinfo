@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "BenchmarkPane.h"
 #include "Messages.h"
+#include "Language.h"
 
 #include <cstring>
 
@@ -23,14 +24,14 @@ int ScaleForWindow(HWND window, int value)
 std::wstring FormatSeconds(double seconds)
 {
     wchar_t buffer[64] = {};
-    swprintf_s(buffer, L"%.3f s", seconds);
+    swprintf_s(buffer, Tr(L"%.3f s"), seconds);
     return buffer;
 }
 
 std::wstring FormatRate(double mbps)
 {
     wchar_t buffer[64] = {};
-    swprintf_s(buffer, L"%.2f MB/s", mbps);
+    swprintf_s(buffer, Tr(L"%.2f MB/s"), mbps);
     return buffer;
 }
 
@@ -44,8 +45,65 @@ std::wstring FormatIops(double iops)
 std::wstring FormatLatency(double milliseconds)
 {
     wchar_t buffer[64] = {};
-    swprintf_s(buffer, L"%.3f ms", milliseconds);
+    swprintf_s(buffer, Tr(L"%.3f ms"), milliseconds);
     return buffer;
+}
+
+// Updates an existing result-list column caption (LVM_SETCOLUMN) so
+// RefreshLanguage does not have to recreate the list.
+void SetColumnText(CListViewCtrl& list, int column, const wchar_t* text)
+{
+    if (list.m_hWnd == nullptr || text == nullptr)
+        return;
+    LVCOLUMNW info = {};
+    info.mask = LVCF_TEXT;
+    info.pszText = const_cast<LPWSTR>(text);
+    ::SendMessageW(list.m_hWnd, LVM_SETCOLUMN, static_cast<WPARAM>(column), reinterpret_cast<LPARAM>(&info));
+}
+
+std::wstring VolumeDisplayLabel(const VolumeInfo& volume)
+{
+    std::wstring label = volume.rootPath;
+    if (!volume.label.empty())
+        label += L"  " + volume.label;
+    label += L"  " + FormatBytesShort(volume.totalBytes);
+    if (volume.freeBytes > 0)
+    {
+        wchar_t buffer[128] = {};
+        swprintf_s(buffer, Tr(L"，可用 %s"), FormatBytesShort(volume.freeBytes).c_str());
+        label += buffer;
+    }
+    if (volume.readOnly)
+        label += Tr(L"（只读）");
+    return label;
+}
+
+std::wstring TargetDisplayLabel(const StorageInfo& storage)
+{
+    std::wstring target = storage.model.empty() ? std::wstring(Tr(L"USB 存储设备")) : storage.model;
+    if (!storage.bridgeChip.empty())
+    {
+        wchar_t buffer[256] = {};
+        swprintf_s(buffer, Tr(L"桥接: %s"), storage.bridgeChip.c_str());
+        target += L"  ·  " + std::wstring(buffer);
+    }
+    if (storage.capacityBytes > 0)
+        target += L"  ·  " + FormatBytes(storage.capacityBytes);
+    return target;
+}
+
+bool TextContainsAny(const std::wstring& value, const wchar_t* source)
+{
+    if (ContainsNoCase(value, source))
+        return true;
+    return ContainsNoCase(value, Tr(source));
+}
+
+bool TextStartsWithAny(const std::wstring& value, const wchar_t* source)
+{
+    if (StartsWithNoCase(value, source))
+        return true;
+    return StartsWithNoCase(value, Tr(source));
 }
 
 std::wstring ResultRowText(HWND list, int row)
@@ -119,26 +177,26 @@ int CBenchmarkPane::OnCreate(LPCREATESTRUCT)
     m_font = AtlCreateControlFont();
     m_boldFont = AtlCreateBoldFont(m_font);
 
-    m_targetLabel.Create(m_hWnd, rcDefault, L"选择一个 USB 存储设备以进行测速。",
+    m_targetLabel.Create(m_hWnd, rcDefault, Tr(L"选择一个 USB 存储设备以进行测速。"),
         WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0);
     m_targetLabel.SetFont(m_boldFont);
 
-    m_volumeLabel.Create(m_hWnd, rcDefault, L"测试卷:", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0);
+    m_volumeLabel.Create(m_hWnd, rcDefault, Tr(L"测试卷:"), WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0);
     m_volumeLabel.SetFont(m_font);
     m_volume.Create(m_hWnd, rcDefault, nullptr,
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, 0, IDC_BENCH_VOLUME);
     m_volume.SetFont(m_font);
 
-    m_sizeLabel.Create(m_hWnd, rcDefault, L"大文件大小:", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0);
+    m_sizeLabel.Create(m_hWnd, rcDefault, Tr(L"大文件大小:"), WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0);
     m_sizeLabel.SetFont(m_font);
     m_size.Create(m_hWnd, rcDefault, nullptr,
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, 0, IDC_BENCH_SIZE);
     m_size.SetFont(m_font);
 
-    m_start.Create(m_hWnd, rcDefault, L"开始测速", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+    m_start.Create(m_hWnd, rcDefault, Tr(L"开始测速"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
         0, IDC_BENCH_START);
     m_start.SetFont(m_font);
-    m_cancel.Create(m_hWnd, rcDefault, L"取消", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+    m_cancel.Create(m_hWnd, rcDefault, Tr(L"取消"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
         0, IDC_BENCH_CANCEL);
     m_cancel.SetFont(m_font);
     m_cancel.EnableWindow(FALSE);
@@ -147,12 +205,12 @@ int CBenchmarkPane::OnCreate(LPCREATESTRUCT)
     m_progress.SetRange(0, 100);
     m_progress.SetPos(0);
 
-    m_status.Create(m_hWnd, rcDefault, L"等待测速。", WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0);
+    m_status.Create(m_hWnd, rcDefault, Tr(L"等待测速。"), WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE, 0);
     m_status.SetFont(m_font);
 
     m_warning.Create(m_hWnd, rcDefault,
-        L"测速会在所选卷上创建临时文件，仅通过文件系统写入，不会直接写裸盘；测试完成后自动删除。"
-        L"测试会产生写入、占用空间并使设备发热，请确认卷上有足够空间。",
+        Tr(L"测速会在所选卷上创建临时文件，仅通过文件系统写入，不会直接写裸盘；测试完成后自动删除。"
+           L"测试会产生写入、占用空间并使设备发热，请确认卷上有足够空间。"),
         WS_CHILD | WS_VISIBLE | SS_LEFT, 0);
     m_warning.SetFont(m_font);
 
@@ -164,13 +222,13 @@ int CBenchmarkPane::OnCreate(LPCREATESTRUCT)
         WS_EX_CLIENTEDGE, IDC_BENCH_RESULTS);
     m_results.SetFont(m_font);
     m_results.SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | LVS_EX_LABELTIP);
-    m_results.InsertColumn(0, L"测试", LVCFMT_LEFT, ScaleForWindow(m_hWnd, 196));
-    m_results.InsertColumn(1, L"数据量", LVCFMT_RIGHT, ScaleForWindow(m_hWnd, 84));
-    m_results.InsertColumn(2, L"耗时", LVCFMT_RIGHT, ScaleForWindow(m_hWnd, 77));
-    m_results.InsertColumn(3, L"速度", LVCFMT_RIGHT, ScaleForWindow(m_hWnd, 98));
+    m_results.InsertColumn(0, Tr(L"测试"), LVCFMT_LEFT, ScaleForWindow(m_hWnd, 196));
+    m_results.InsertColumn(1, Tr(L"数据量"), LVCFMT_RIGHT, ScaleForWindow(m_hWnd, 84));
+    m_results.InsertColumn(2, Tr(L"耗时"), LVCFMT_RIGHT, ScaleForWindow(m_hWnd, 77));
+    m_results.InsertColumn(3, Tr(L"速度"), LVCFMT_RIGHT, ScaleForWindow(m_hWnd, 98));
     m_results.InsertColumn(4, L"IOPS", LVCFMT_RIGHT, ScaleForWindow(m_hWnd, 70));
-    m_results.InsertColumn(5, L"延迟", LVCFMT_RIGHT, ScaleForWindow(m_hWnd, 84));
-    m_results.InsertColumn(6, L"状态", LVCFMT_LEFT, ScaleForWindow(m_hWnd, 91));
+    m_results.InsertColumn(5, Tr(L"延迟"), LVCFMT_RIGHT, ScaleForWindow(m_hWnd, 84));
+    m_results.InsertColumn(6, Tr(L"状态"), LVCFMT_LEFT, ScaleForWindow(m_hWnd, 91));
 
     m_size.AddString(L"128 MB");
     m_size.AddString(L"256 MB");
@@ -341,12 +399,34 @@ void CBenchmarkPane::SetTarget(const StorageInfo* storage)
         m_results.DeleteAllItems();
         m_progress.SetPos(0);
         m_chartStage.clear();
-        m_chart.Clear(L"实时吞吐 (MB/s)");
+        m_chart.Clear(std::wstring());
         m_chart.SetMessage(L"等待测速…");
         m_targetKey = targetKey;
     }
 
     m_storage = *storage;
+
+    // A new target starts from the first writable volume, matching the previous
+    // behaviour; the selection is only preserved across language switches.
+    RebuildVolumeCombo(!targetChanged);
+
+    m_targetLabel.SetWindowText(TargetDisplayLabel(m_storage).c_str());
+    m_status.SetWindowText(Tr(L"请选择卷和文件大小，然后点击“开始测速”。"));
+    m_progress.SetPos(0);
+    if (!m_running)
+        ResetChart(L"", L"");
+    SetRunningUi(m_running);
+}
+
+void CBenchmarkPane::RebuildVolumeCombo(bool preserveSelection)
+{
+    DWORD_PTR previous = static_cast<DWORD_PTR>(-1);
+    if (preserveSelection)
+    {
+        const int current = m_volume.GetCurSel();
+        if (current >= 0)
+            previous = m_volume.GetItemData(current);
+    }
 
     m_volume.ResetContent();
     m_hasWritableVolume = false;
@@ -355,22 +435,14 @@ void CBenchmarkPane::SetTarget(const StorageInfo* storage)
         const VolumeInfo& volume = m_storage.volumes[i];
         if (volume.rootPath.empty() || volume.totalBytes == 0)
             continue;
-        std::wstring label = volume.rootPath;
-        if (!volume.label.empty())
-            label += L"  " + volume.label;
-        label += L"  " + FormatBytesShort(volume.totalBytes);
-        if (volume.freeBytes > 0)
-            label += L"，可用 " + FormatBytesShort(volume.freeBytes);
-        if (volume.readOnly)
-            label += L"（只读）";
-        int index = m_volume.AddString(label.c_str());
+        const int index = m_volume.AddString(VolumeDisplayLabel(volume).c_str());
         if (index >= 0)
         {
             m_volume.SetItemData(index, static_cast<DWORD_PTR>(i));
             if (!volume.readOnly)
             {
                 m_hasWritableVolume = true;
-                if (m_volume.GetCurSel() < 0)
+                if (!preserveSelection && m_volume.GetCurSel() < 0)
                     m_volume.SetCurSel(index);
             }
         }
@@ -378,21 +450,34 @@ void CBenchmarkPane::SetTarget(const StorageInfo* storage)
 
     if (!m_hasWritableVolume)
     {
-        m_volume.AddString(L"未找到可写卷（请确认设备已挂载并具有写权限）");
+        m_volume.AddString(Tr(L"未找到可写卷（请确认设备已挂载并具有写权限）"));
         m_volume.SetCurSel(0);
+        return;
     }
 
-    std::wstring target = m_storage.model.empty() ? L"USB 存储设备" : m_storage.model;
-    if (!m_storage.bridgeChip.empty())
-        target += L"  ·  桥接: " + m_storage.bridgeChip;
-    if (m_storage.capacityBytes > 0)
-        target += L"  ·  " + FormatBytes(m_storage.capacityBytes);
-    m_targetLabel.SetWindowText(target.c_str());
-    m_status.SetWindowText(L"请选择卷和文件大小，然后点击“开始测速”。");
-    m_progress.SetPos(0);
-    if (!m_running)
-        ResetChart(L"", L"");
-    SetRunningUi(m_running);
+    if (!preserveSelection)
+        return;
+
+    // Restore the previously selected volume, otherwise fall back to the first
+    // writable one exactly like a fresh target does.
+    const int count = m_volume.GetCount();
+    for (int i = 0; i < count; ++i)
+    {
+        if (m_volume.GetItemData(i) == previous)
+        {
+            m_volume.SetCurSel(i);
+            return;
+        }
+    }
+    for (int i = 0; i < count; ++i)
+    {
+        const DWORD_PTR data = m_volume.GetItemData(i);
+        if (data < m_storage.volumes.size() && !m_storage.volumes[static_cast<size_t>(data)].readOnly)
+        {
+            m_volume.SetCurSel(i);
+            return;
+        }
+    }
 }
 
 void CBenchmarkPane::ClearTarget()
@@ -404,17 +489,61 @@ void CBenchmarkPane::ClearTarget()
     m_results.DeleteAllItems();
     m_progress.SetPos(0);
     m_chartStage.clear();
-    m_chart.Clear(L"实时吞吐 (MB/s)");
+    m_chart.Clear(std::wstring());
     m_chart.SetMessage(L"等待测速…");
     m_volume.ResetContent();
-    m_volume.AddString(L"仅 USB 存储设备支持测速");
+    m_volume.AddString(Tr(L"仅 USB 存储设备支持测速"));
     m_volume.SetCurSel(0);
-    m_targetLabel.SetWindowText(L"仅 USB 存储设备支持测速。");
-    m_status.SetWindowText(L"请选择一个 USB 存储设备节点。");
+    m_targetLabel.SetWindowText(Tr(L"仅 USB 存储设备支持测速。"));
+    m_status.SetWindowText(Tr(L"请选择一个 USB 存储设备节点。"));
     m_progress.SetPos(0);
     if (!m_running)
         ResetChart(L"", L"");
     SetRunningUi(false);
+}
+
+void CBenchmarkPane::RefreshLanguage()
+{
+    if (!::IsWindow(m_hWnd))
+        return;
+
+    m_volumeLabel.SetWindowText(Tr(L"测试卷:"));
+    m_sizeLabel.SetWindowText(Tr(L"大文件大小:"));
+    m_start.SetWindowText(Tr(L"开始测速"));
+    m_cancel.SetWindowText(Tr(L"取消"));
+    m_warning.SetWindowText(Tr(L"测速会在所选卷上创建临时文件，仅通过文件系统写入，不会直接写裸盘；测试完成后自动删除。"
+                               L"测试会产生写入、占用空间并使设备发热，请确认卷上有足够空间。"));
+
+    // Result table captions are updated in place through LVM_SETCOLUMN.
+    SetColumnText(m_results, 0, Tr(L"测试"));
+    SetColumnText(m_results, 1, Tr(L"数据量"));
+    SetColumnText(m_results, 2, Tr(L"耗时"));
+    SetColumnText(m_results, 3, Tr(L"速度"));
+    SetColumnText(m_results, 4, L"IOPS");
+    SetColumnText(m_results, 5, Tr(L"延迟"));
+    SetColumnText(m_results, 6, Tr(L"状态"));
+
+    if (m_hasTarget)
+    {
+        // Rebuild the localized volume labels in place; the measurement, the
+        // collected results and the chart curve are left untouched.
+        RebuildVolumeCombo(true);
+        m_targetLabel.SetWindowText(TargetDisplayLabel(m_storage).c_str());
+        if (!m_running)
+            m_status.SetWindowText(Tr(L"请选择卷和文件大小，然后点击“开始测速”。"));
+    }
+    else
+    {
+        m_volume.ResetContent();
+        m_volume.AddString(Tr(L"仅 USB 存储设备支持测速"));
+        m_volume.SetCurSel(0);
+        m_targetLabel.SetWindowText(Tr(L"仅 USB 存储设备支持测速。"));
+        m_status.SetWindowText(Tr(L"请选择一个 USB 存储设备节点。"));
+    }
+
+    m_chart.RefreshLanguage();
+    SetRunningUi(m_running);
+    LayoutChildren();
 }
 
 void CBenchmarkPane::FocusStart()
@@ -451,7 +580,7 @@ LRESULT CBenchmarkPane::OnStart(WORD, WORD, HWND, BOOL&)
     const VolumeInfo& volume = m_storage.volumes[static_cast<size_t>(volumeIndex)];
     if (volume.rootPath.empty() || volume.readOnly)
     {
-        ::MessageBoxW(m_hWnd, L"所选卷没有可用的写路径或为只读。", L"USBInfo 测速", MB_OK | MB_ICONWARNING);
+        ::MessageBoxW(m_hWnd, Tr(L"所选卷没有可用的写路径或为只读。"), Tr(L"USBInfo 测速"), MB_OK | MB_ICONWARNING);
         return 0;
     }
 
@@ -470,17 +599,17 @@ LRESULT CBenchmarkPane::OnStart(WORD, WORD, HWND, BOOL&)
     config.smallBlock = 4096;
     const uint64_t smallMb = config.smallBytes / (1024ull * 1024ull);
 
-    wchar_t question[1024] = {};
+    wchar_t question[2048] = {};
     swprintf_s(question,
-        L"将在以下卷创建临时测速文件：\n\n%s\n\n"
-        L"大文件：%llu MB × 4 项（1 MiB 块：顺序写/读、随机写/读）\n"
-        L"小数据：%llu MB × 4 项（4 KiB 块：顺序写/读、随机写/读）\n\n"
-        L"测试只写文件系统，不会写裸盘；完成后自动删除。\n"
-        L"测试会产生实际写入并占用空间，是否继续？",
+        Tr(L"将在以下卷创建临时测速文件：\n\n%s\n\n"
+           L"大文件：%llu MB × 4 项（1 MiB 块：顺序写/读、随机写/读）\n"
+           L"小数据：%llu MB × 4 项（4 KiB 块：顺序写/读、随机写/读）\n\n"
+           L"测试只写文件系统，不会写裸盘；完成后自动删除。\n"
+           L"测试会产生实际写入并占用空间，是否继续？"),
         volume.rootPath.c_str(),
         static_cast<unsigned long long>(largeMb),
         static_cast<unsigned long long>(smallMb));
-    if (::MessageBoxW(m_hWnd, question, L"USBInfo 测速确认",
+    if (::MessageBoxW(m_hWnd, question, Tr(L"USBInfo 测速确认"),
         MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) != IDYES)
         return 0;
 
@@ -489,7 +618,7 @@ LRESULT CBenchmarkPane::OnStart(WORD, WORD, HWND, BOOL&)
     m_running = true;
     m_results.DeleteAllItems();
     m_progress.SetPos(0);
-    m_status.SetWindowText(L"准备测试文件…");
+    m_status.SetWindowText(Tr(L"准备测试文件…"));
     ResetChart(L"准备测试文件…", L"正在创建临时测试文件…");
     SetRunningUi(true);
 
@@ -509,7 +638,7 @@ LRESULT CBenchmarkPane::OnStart(WORD, WORD, HWND, BOOL&)
             BenchmarkUpdate update;
             update.done = true;
             update.ok = false;
-            update.message = L"测速线程异常：";
+            update.message = Tr(L"测速线程异常：");
             int length = ::MultiByteToWideChar(CP_UTF8, 0, ex.what(), -1, nullptr, 0);
             if (length > 1)
             {
@@ -532,7 +661,7 @@ LRESULT CBenchmarkPane::OnCancel(WORD, WORD, HWND, BOOL&)
         return 0;
     m_benchCancel = true;
     m_cancel.EnableWindow(FALSE);
-    m_status.SetWindowText(L"正在取消测试并清理临时文件…");
+    m_status.SetWindowText(Tr(L"正在取消测试并清理临时文件…"));
     m_chart.SetMessage(L"正在取消测试…");
     return 0;
 }
@@ -546,8 +675,9 @@ LRESULT CBenchmarkPane::OnBenchUpdate(UINT, WPARAM, LPARAM lParam, BOOL&)
     m_progress.SetPos(std::clamp(update->percent, 0, 100));
 
     // "提示：…" updates only carry advice about buffering; they must not
-    // replace the chart title or reset the curve.
-    const bool isHint = update->stage.rfind(L"提示", 0) == 0;
+    // replace the chart title or reset the curve.  The prefix may already be
+    // localized by the benchmark layer, so accept both forms.
+    const bool isHint = TextStartsWithAny(update->stage, L"提示");
     if (!update->done && !isHint && !update->stage.empty() && update->stage != m_chartStage)
     {
         m_chartStage = update->stage;
@@ -555,7 +685,10 @@ LRESULT CBenchmarkPane::OnBenchUpdate(UINT, WPARAM, LPARAM lParam, BOOL&)
     }
 
     if (!update->stage.empty())
-        m_status.SetWindowText(update->stage.c_str());
+    {
+        const std::wstring stageText = Tr(update->stage);
+        m_status.SetWindowText(stageText.c_str());
+    }
 
     if (update->sampleMbps.has_value())
         m_chart.AddSample(*update->sampleMbps);
@@ -571,16 +704,20 @@ LRESULT CBenchmarkPane::OnBenchUpdate(UINT, WPARAM, LPARAM lParam, BOOL&)
         m_chartStage.clear();
         if (update->ok)
         {
-            m_status.SetWindowText(L"测速完成。临时文件已删除。");
+            m_status.SetWindowText(Tr(L"测速完成。临时文件已删除。"));
             m_chart.SetMessage(L"测速完成");
         }
         else
         {
-            std::wstring message = L"测速未完成。";
-            if (!update->message.empty())
-                message += L" " + update->message;
-            m_status.SetWindowText(message.c_str());
-            const bool cancelled = update->message.find(L"取消") != std::wstring::npos;
+            wchar_t message[2048] = {};
+            if (update->message.empty())
+                swprintf_s(message, L"%s", Tr(L"测速未完成。"));
+            else
+                swprintf_s(message, Tr(L"测速未完成。 %s"), update->message.c_str());
+            m_status.SetWindowText(message);
+            // The benchmark layer may report the cancellation in the current
+            // language; the cancel flag is the reliable signal.
+            const bool cancelled = m_benchCancel.load() || TextContainsAny(update->message, L"取消");
             m_chart.SetMessage(cancelled ? L"测试已取消" : L"测速未完成");
         }
         m_cancel.EnableWindow(FALSE);
@@ -621,12 +758,12 @@ void CBenchmarkPane::ShowResultsMenu(const POINT& screenPoint)
     UINT rowFlags = MF_STRING;
     if (!hasSelection)
         rowFlags |= MF_GRAYED;
-    ::AppendMenuW(menu, rowFlags, kCmdCopyResultRow, L"复制当前行");
+    ::AppendMenuW(menu, rowFlags, kCmdCopyResultRow, Tr(L"复制当前行"));
 
     UINT allFlags = MF_STRING;
     if (!hasRows)
         allFlags |= MF_GRAYED;
-    ::AppendMenuW(menu, allFlags, kCmdCopyAllResults, L"复制全部结果");
+    ::AppendMenuW(menu, allFlags, kCmdCopyAllResults, Tr(L"复制全部结果"));
 
     ::SetForegroundWindow(m_hWnd);
     const UINT command = static_cast<UINT>(::TrackPopupMenu(menu,
@@ -666,7 +803,7 @@ void CBenchmarkPane::AddResult(const BenchmarkResult& result)
     m_results.SetItemText(row, 3, FormatRate(result.mbps).c_str());
     m_results.SetItemText(row, 4, FormatIops(result.iops).c_str());
     m_results.SetItemText(row, 5, FormatLatency(result.latencyMs).c_str());
-    std::wstring status = result.ok ? L"完成" : (result.error.empty() ? L"失败" : result.error);
+    std::wstring status = result.ok ? Tr(L"完成") : (result.error.empty() ? Tr(L"失败") : result.error);
     m_results.SetItemText(row, 6, status.c_str());
     m_results.EnsureVisible(row, FALSE);
 }

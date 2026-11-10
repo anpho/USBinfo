@@ -25,6 +25,9 @@ public:
 
     void SetTarget(const StorageInfo* storage);
     void ClearTarget();
+    // Re-renders the localized captions/buttons/headers/status of this page
+    // without touching the running measurement or the collected results.
+    void RefreshLanguage();
     void FocusStart();
     bool IsRunning() const { return m_running; }
 
@@ -46,6 +49,7 @@ private:
     void AddResult(const BenchmarkResult& result);
     void SetRunningUi(bool running);
     void ResetChart(const std::wstring& title, const std::wstring& message);
+    void RebuildVolumeCombo(bool preserveSelection);
 
     CStatic m_targetLabel;
     CStatic m_volumeLabel;

@@ -21,10 +21,11 @@ BEGIN
     BEGIN
         BLOCK "080404b0"
         BEGIN
-            VALUE "CompanyName", "USBInfo"
+            VALUE "CompanyName", "anpho & DeepSeek"
             VALUE "FileDescription", "USB device, hub, storage, SMART and benchmark tool"
             VALUE "FileVersion", "1.0.0.0"
             VALUE "InternalName", "USBInfo.exe"
+            VALUE "LegalCopyright", "Copyright (C) 2026 anpho & DeepSeek. All rights reserved."
             VALUE "OriginalFilename", "USBInfo.exe"
             VALUE "ProductName", "USBInfo"
             VALUE "ProductVersion", "1.0.0.0"

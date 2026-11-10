@@ -2,9 +2,31 @@
 
 一个使用 **VC / C++20 / WTL 10 / Win32** 编写的 USB 拓扑、HUB、存储、SMART 与读写测速工具。
 
-项目位于 `C:\Users\MerrickZ\Desktop\usbinfo`，可以直接用 Visual Studio 打开 `USBInfo.sln`，也可以使用 MSBuild 命令行构建。
+- 作者：**anpho & Deepseek**
+- 项目主页：**https://github.com/anpho/USBinfo**
 
 ![USBInfo 主界面](docs/screenshot.png)
+
+可以直接用 Visual Studio 打开 `USBInfo.sln`，也可以使用 MSBuild 命令行构建。
+
+## 0. 多语言
+
+支持 8 种界面语言：
+
+- 简体中文
+- English
+- Français
+- Deutsch
+- Español
+- 日本語
+- 한국어
+- Русский
+
+启动时根据 Windows 显示语言自动选择；也可以随时通过 **查看 → Language** 手动切换（含“自动（系统）”），切换后立即刷新菜单、树、详情、状态栏和测速页，无需重启、无需重新扫描设备。语言选择会保存到当前用户配置（受限环境无法写注册表时仅当次生效）。
+
+文本资源集中在 `src/LanguageCore.inc`、`src/LanguageUi.inc`、`src/LanguageData.inc`；新增字符串时用 `Tr(L"中文")` 包一层，并在对应资源表补一行即可。
+
+**关于** 对话框包含作者、项目主页；**帮助 → 项目主页** 可直接打开 GitHub。
 
 ## 1. 功能
 
@@ -182,6 +204,10 @@ src/
   Smart.*                  SMART/ATA/SCSI/NVMe 读取
   Benchmark.*              文件级测速引擎
   Model.*                  数据模型、详情行、文本报告
+  Language.*               多语言检测、切换、Tr() 翻译查表
+  LanguageCore.inc         菜单/状态/About/TreePane 翻译
+  LanguageUi.inc           详情/SMART/测速/曲线/右键菜单翻译
+  LanguageData.inc         设备详情行/单位/报告/SMART/警告翻译
   DeviceProps.*            PnP/注册表/设备属性封装
   ChipDb.*                 VID/PID 芯片推断库
   Util.*                   格式化与通用工具
@@ -261,11 +287,10 @@ Windows 的公开 USB API **不提供**线缆 E-Marker、CC 线序、线材阻�
 
 - 2 个 Intel xHCI 主机控制器
 - 2 个根集线器（16 端口 / 5 端口）
-- USB 复合摄像头、蓝牙、指纹、两个 USB 存储设备
-- SanDisk Extreme Pro 238.5 GB（5 Gbps）
-- Generic USB Flash Disk 14.84 GB（480 Mbps）
+- USB 复合摄像头、蓝牙、指纹
+- Generic USB Flash Disk 14.84 GB（480 Mbps，FAT32，D:）
 
-一次 SanDisk Extreme Pro（128 MB 大文件 / 32 MB 小数据）文件级测速结果示例（不同版本/环境会有波动）：
+以下为在 SanDisk Extreme Pro 上的历史文件级测速示例（不同版本/环境会有波动）：
 
 | 测试 | 速度 |
 |---|---:|
@@ -312,6 +337,21 @@ A: 不会写裸盘，只写卷上的临时文件并自动删除。但测试会�
 **Q: 为什么小数据随机写比顺序写慢很多？**  
 A: 这通常是 USB 闪存盘/桥接器的正常表现，尤其是 4 KiB 随机写触发 FTL 垃圾回收和写放大。结果本身是有参考价值的。
 
+**Q: 如何切换语言？**  
+A: 菜单 **查看 → Language**，可选“自动（系统）”或 8 种语言；切换后立即生效，不需要重启或重新扫描。启动时的默认值来自 Windows 显示语言。
+
 ## 9. 许可
 
 本项目代码可自由用于学习和内部工具。第三方 WTL 按 MS-PL 许可使用，见 `third_party/wtl/MS-PL.txt`。
+
+## 10. 上游仓库
+
+```text
+git@github.com:anpho/USBinfo.git
+```
+
+```bat
+git remote add origin git@github.com:anpho/USBinfo.git
+git push -u origin main
+```
+

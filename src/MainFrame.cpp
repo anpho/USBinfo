@@ -3,12 +3,54 @@
 #include "Messages.h"
 #include "Model.h"
 #include "DeviceProps.h"
+#include "Language.h"
 
 #include <commdlg.h>
 #include <cstdio>
 
 namespace
 {
+constexpr wchar_t kWebsiteUrl[] = L"https://github.com/anpho/USBinfo";
+
+struct LanguageMenuEntry
+{
+    UINT commandId;
+    AppLanguage language;
+};
+
+const LanguageMenuEntry kLanguageMenuEntries[] =
+{
+    { ID_VIEW_LANGUAGE_AUTO, AppLanguage::Auto },
+    { ID_VIEW_LANGUAGE_ZH,   AppLanguage::ZhCN },
+    { ID_VIEW_LANGUAGE_EN,   AppLanguage::EnUS },
+    { ID_VIEW_LANGUAGE_FR,   AppLanguage::FrFR },
+    { ID_VIEW_LANGUAGE_DE,   AppLanguage::DeDE },
+    { ID_VIEW_LANGUAGE_ES,   AppLanguage::EsES },
+    { ID_VIEW_LANGUAGE_JA,   AppLanguage::JaJP },
+    { ID_VIEW_LANGUAGE_KO,   AppLanguage::KoKR },
+    { ID_VIEW_LANGUAGE_RU,   AppLanguage::RuRU },
+};
+
+AppLanguage LanguageFromCommandId(int id)
+{
+    for (const auto& entry : kLanguageMenuEntries)
+    {
+        if (static_cast<int>(entry.commandId) == id)
+            return entry.language;
+    }
+    return AppLanguage::Auto;
+}
+
+UINT CommandIdForLanguage(AppLanguage language)
+{
+    for (const auto& entry : kLanguageMenuEntries)
+    {
+        if (entry.language == language)
+            return entry.commandId;
+    }
+    return ID_VIEW_LANGUAGE_AUTO;
+}
+
 int ScaleForWindow(HWND window, int value)
 {
     UINT dpi = window != nullptr ? ::GetDpiForWindow(window) : 96;
@@ -25,6 +67,23 @@ std::wstring DefaultReportPath()
     wchar_t current[MAX_PATH] = {};
     ::GetCurrentDirectoryW(_countof(current), current);
     return std::wstring(current) + L"\\USBInfo_Report.txt";
+}
+
+// Build a double-NUL-terminated filter string for the common save dialog.
+std::wstring BuildReportFilter()
+{
+    std::wstring filter;
+    auto appendPair = [&filter](const wchar_t* label, const wchar_t* pattern)
+    {
+        filter.append(label);
+        filter.push_back(L'\0');
+        filter.append(pattern);
+        filter.push_back(L'\0');
+    };
+    appendPair(Tr(L"文本报告 (*.txt)"), L"*.txt");
+    appendPair(Tr(L"所有文件 (*.*)"), L"*.*");
+    filter.push_back(L'\0');
+    return filter;
 }
 }
 
@@ -52,11 +111,11 @@ int CMainFrame::OnCreate(LPCREATESTRUCT)
 
     int parts[] = { 500, 700, -1 };
     m_status.SetParts(3, parts);
-    m_status.SetText(0, L"就绪");
-    m_status.SetText(1, IsProcessElevated() ? L"管理员" : L"标准用户");
+    m_status.SetText(0, Tr(L"就绪"));
+    m_status.SetText(1, IsProcessElevated() ? Tr(L"管理员") : Tr(L"标准用户"));
     m_status.SetText(2, L"");
 
-    SetWindowText(L"USBInfo - USB 设备、HUB、存储与线缆信息");
+    SetWindowText(Tr(L"USBInfo - USB 设备、HUB、存储与线缆信息"));
     LayoutChildren();
     UpdateMenuState();
     PostMessage(WM_APP_REQUEST_REFRESH, 0, 0);
@@ -70,34 +129,64 @@ void CMainFrame::BuildMenu()
 
     CMenu fileMenu;
     fileMenu.CreatePopupMenu();
-    fileMenu.AppendMenuW(MF_STRING, ID_FILE_REFRESH, L"刷新(&R)");
-    fileMenu.AppendMenuW(MF_STRING, ID_FILE_EXPORT, L"导出报告(&E)...");
+    fileMenu.AppendMenuW(MF_STRING, ID_FILE_REFRESH, Tr(L"刷新(&R)"));
+    fileMenu.AppendMenuW(MF_STRING, ID_FILE_EXPORT, Tr(L"导出报告(&E)..."));
     fileMenu.AppendMenuW(MF_SEPARATOR);
-    fileMenu.AppendMenuW(MF_STRING, ID_FILE_EXIT, L"退出(&X)");
-    menu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(fileMenu.Detach()), L"文件(&F)");
+    fileMenu.AppendMenuW(MF_STRING, ID_FILE_EXIT, Tr(L"退出(&X)"));
+    menu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(fileMenu.Detach()), Tr(L"文件(&F)"));
 
     CMenu actionMenu;
     actionMenu.CreatePopupMenu();
-    actionMenu.AppendMenuW(MF_STRING, ID_ACTION_BENCH, L"测速(&T)...");
-    actionMenu.AppendMenuW(MF_STRING, ID_ACTION_COPY, L"复制当前节点信息(&C)");
+    actionMenu.AppendMenuW(MF_STRING, ID_ACTION_BENCH, Tr(L"测速(&T)..."));
+    actionMenu.AppendMenuW(MF_STRING, ID_ACTION_COPY, Tr(L"复制当前节点信息(&C)"));
     actionMenu.AppendMenuW(MF_SEPARATOR);
-    actionMenu.AppendMenuW(MF_STRING, ID_FILE_EXPORT, L"导出报告(&E)...");
-    menu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(actionMenu.Detach()), L"操作(&O)");
+    actionMenu.AppendMenuW(MF_STRING, ID_FILE_EXPORT, Tr(L"导出报告(&E)..."));
+    menu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(actionMenu.Detach()), Tr(L"操作(&O)"));
 
     CMenu viewMenu;
     viewMenu.CreatePopupMenu();
-    viewMenu.AppendMenuW(MF_STRING, ID_VIEW_EXPAND_ALL, L"展开全部");
-    viewMenu.AppendMenuW(MF_STRING, ID_VIEW_COLLAPSE_ALL, L"折叠全部");
+    viewMenu.AppendMenuW(MF_STRING, ID_VIEW_EXPAND_ALL, Tr(L"展开全部"));
+    viewMenu.AppendMenuW(MF_STRING, ID_VIEW_COLLAPSE_ALL, Tr(L"折叠全部"));
     viewMenu.AppendMenuW(MF_SEPARATOR);
-    viewMenu.AppendMenuW(MF_STRING, ID_VIEW_ELEVATE, L"以管理员身份重启");
-    menu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(viewMenu.Detach()), L"查看(&V)");
+    viewMenu.AppendMenuW(MF_STRING, ID_VIEW_ELEVATE, Tr(L"以管理员身份重启"));
+    viewMenu.AppendMenuW(MF_SEPARATOR);
+
+    CMenu languageMenu;
+    languageMenu.CreatePopupMenu();
+    for (const auto& entry : kLanguageMenuEntries)
+        languageMenu.AppendMenuW(MF_STRING, entry.commandId, LanguageName(entry.language));
+    languageMenu.CheckMenuRadioItem(ID_VIEW_LANGUAGE_AUTO, ID_VIEW_LANGUAGE_RU,
+        CommandIdForLanguage(LanguageGetConfigured()), MF_BYCOMMAND);
+    viewMenu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(languageMenu.Detach()), Tr(L"语言(&L)"));
+    menu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(viewMenu.Detach()), Tr(L"查看(&V)"));
 
     CMenu helpMenu;
     helpMenu.CreatePopupMenu();
-    helpMenu.AppendMenuW(MF_STRING, ID_HELP_ABOUT, L"关于(&A)");
-    menu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(helpMenu.Detach()), L"帮助(&H)");
+    helpMenu.AppendMenuW(MF_STRING, ID_HELP_WEBSITE, Tr(L"项目主页(&W)"));
+    helpMenu.AppendMenuW(MF_SEPARATOR);
+    helpMenu.AppendMenuW(MF_STRING, ID_HELP_ABOUT, Tr(L"关于(&A)"));
+    menu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(helpMenu.Detach()), Tr(L"帮助(&H)"));
 
+    HMENU previousMenu = GetMenu();
     SetMenu(menu.Detach());
+    if (previousMenu != nullptr)
+        ::DestroyMenu(previousMenu);
+}
+
+void CMainFrame::ApplyLanguage()
+{
+    // Rebuild the cached node titles/status summary in the new language before
+    // refreshing the panes. No USB rescan is performed here.
+    if (m_snapshot != nullptr)
+        RefreshSnapshotText(*m_snapshot);
+
+    BuildMenu();
+    SetWindowText(Tr(L"USBInfo - USB 设备、HUB、存储与线缆信息"));
+    m_treePane.RefreshLanguage();
+    m_detailPane.RefreshLanguage();
+    UpdateStatus();
+    UpdateMenuState();
+    Invalidate(TRUE);
 }
 
 void CMainFrame::UpdateMenuState()
@@ -165,8 +254,8 @@ void CMainFrame::StartScan()
     UpdateMenuState();
     m_treePane.SetScanning(true);
     m_detailPane.SetScanning();
-    m_status.SetText(0, L"正在扫描 USB 拓扑…");
-    m_status.SetText(2, L"HUB: 读取中");
+    m_status.SetText(0, Tr(L"正在扫描 USB 拓扑…"));
+    m_status.SetText(2, Tr(L"HUB: 读取中"));
 
     m_scanThread = std::thread([this]()
     {
@@ -183,24 +272,29 @@ void CMainFrame::UpdateStatus()
         return;
     if (m_scanning)
     {
-        m_status.SetText(0, L"正在扫描 USB 拓扑…");
-        m_status.SetText(1, IsProcessElevated() ? L"管理员" : L"标准用户");
-        m_status.SetText(2, L"HUB: 读取中");
+        m_status.SetText(0, Tr(L"正在扫描 USB 拓扑…"));
+        m_status.SetText(1, IsProcessElevated() ? Tr(L"管理员") : Tr(L"标准用户"));
+        m_status.SetText(2, Tr(L"HUB: 读取中"));
         return;
     }
     if (m_snapshot != nullptr)
     {
         m_status.SetText(0, m_snapshot->summary.c_str());
-        m_status.SetText(1, m_snapshot->elevated ? L"管理员" : L"标准用户（部分信息受限）");
-        std::wstring hub = m_snapshot->hubAccessOk ? L"HUB: 可读" : L"HUB: 受限";
+        m_status.SetText(1, m_snapshot->elevated ? Tr(L"管理员") : Tr(L"标准用户（部分信息受限）"));
+        std::wstring hub = m_snapshot->hubAccessOk ? Tr(L"HUB: 可读") : Tr(L"HUB: 受限");
         if (!m_snapshot->warnings.empty())
-            hub += L" · " + std::to_wstring(m_snapshot->warnings.size()) + L" 条提示";
+        {
+            wchar_t buffer[64] = {};
+            swprintf_s(buffer, Tr(L"%d 条提示"), static_cast<int>(m_snapshot->warnings.size()));
+            hub += L" · ";
+            hub += buffer;
+        }
         m_status.SetText(2, hub.c_str());
     }
     else
     {
-        m_status.SetText(0, L"就绪");
-        m_status.SetText(1, IsProcessElevated() ? L"管理员" : L"标准用户");
+        m_status.SetText(0, Tr(L"就绪"));
+        m_status.SetText(1, IsProcessElevated() ? Tr(L"管理员") : Tr(L"标准用户"));
         m_status.SetText(2, L"");
     }
 }
@@ -244,7 +338,7 @@ LRESULT CMainFrame::OnScanDone(UINT, WPARAM, LPARAM lParam, BOOL&)
     else
     {
         m_treePane.SetScanning(false);
-        m_status.SetText(0, L"扫描失败");
+        m_status.SetText(0, Tr(L"扫描失败"));
     }
     UpdateStatus();
     UpdateMenuState();
@@ -264,6 +358,19 @@ LRESULT CMainFrame::OnRequestRefresh(UINT, WPARAM, LPARAM, BOOL&)
     return 0;
 }
 
+LRESULT CMainFrame::OnLanguageCommand(UINT, int id, HWND)
+{
+    LanguageSet(LanguageFromCommandId(id), true);
+    ApplyLanguage();
+    return 0;
+}
+
+LRESULT CMainFrame::OnHelpWebsite(WORD, WORD, HWND, BOOL&)
+{
+    ::ShellExecuteW(m_hWnd, L"open", kWebsiteUrl, nullptr, nullptr, SW_SHOWNORMAL);
+    return 0;
+}
+
 LRESULT CMainFrame::OnFileRefresh(WORD, WORD, HWND, BOOL&)
 {
     StartScan();
@@ -274,17 +381,18 @@ LRESULT CMainFrame::OnFileExport(WORD, WORD, HWND, BOOL&)
 {
     if (m_snapshot == nullptr)
     {
-        ::MessageBoxW(m_hWnd, L"还没有可导出的设备数据，请先刷新。", L"USBInfo", MB_OK | MB_ICONINFORMATION);
+        ::MessageBoxW(m_hWnd, Tr(L"还没有可导出的设备数据，请先刷新。"), L"USBInfo", MB_OK | MB_ICONINFORMATION);
         return 0;
     }
 
     std::wstring initial = DefaultReportPath();
     wchar_t fileName[MAX_PATH] = {};
     wcscpy_s(fileName, initial.c_str());
+    std::wstring filter = BuildReportFilter();
     OPENFILENAMEW dialog = {};
     dialog.lStructSize = sizeof(dialog);
     dialog.hwndOwner = m_hWnd;
-    dialog.lpstrFilter = L"文本报告 (*.txt)\0*.txt\0所有文件 (*.*)\0*.*\0\0";
+    dialog.lpstrFilter = filter.c_str();
     dialog.lpstrFile = fileName;
     dialog.nMaxFile = _countof(fileName);
     dialog.lpstrDefExt = L"txt";
@@ -302,7 +410,7 @@ LRESULT CMainFrame::OnFileExport(WORD, WORD, HWND, BOOL&)
     FILE* file = nullptr;
     if (_wfopen_s(&file, fileName, L"wb") != 0 || file == nullptr)
     {
-        ::MessageBoxW(m_hWnd, L"无法写入报告文件。", L"USBInfo", MB_OK | MB_ICONERROR);
+        ::MessageBoxW(m_hWnd, Tr(L"无法写入报告文件。"), L"USBInfo", MB_OK | MB_ICONERROR);
         return 0;
     }
     const unsigned char bom[] = { 0xEF, 0xBB, 0xBF };
@@ -311,7 +419,11 @@ LRESULT CMainFrame::OnFileExport(WORD, WORD, HWND, BOOL&)
         fwrite(utf8.data(), 1, utf8.size(), file);
     fclose(file);
 
-    std::wstring message = L"报告已导出：\n" + std::wstring(fileName) + L"\n\n是否现在打开？";
+    std::wstring message = Tr(L"报告已导出：");
+    message += L"\n";
+    message += fileName;
+    message += L"\n\n";
+    message += Tr(L"是否现在打开？");
     if (::MessageBoxW(m_hWnd, message.c_str(), L"USBInfo", MB_YESNO | MB_ICONINFORMATION) == IDYES)
         ::ShellExecuteW(m_hWnd, L"open", fileName, nullptr, nullptr, SW_SHOWNORMAL);
     return 0;
@@ -352,14 +464,14 @@ LRESULT CMainFrame::OnElevate(WORD, WORD, HWND, BOOL&)
 {
     if (IsProcessElevated())
     {
-        ::MessageBoxW(m_hWnd, L"当前已经以管理员身份运行。", L"USBInfo", MB_OK | MB_ICONINFORMATION);
+        ::MessageBoxW(m_hWnd, Tr(L"当前已经以管理员身份运行。"), L"USBInfo", MB_OK | MB_ICONINFORMATION);
         return 0;
     }
     if (!RelaunchElevated())
     {
         ::MessageBoxW(m_hWnd,
-            L"无法以管理员身份重启。可能取消了 UAC 提示，或系统策略禁止提升。\n"
-            L"标准用户模式下仍可查看基本 USB 拓扑，但 HUB 描述符、物理磁盘 IOCTL 和 SMART 可能不可读。",
+            Tr(L"无法以管理员身份重启。可能取消了 UAC 提示，或系统策略禁止提升。\n"
+               L"标准用户模式下仍可查看基本 USB 拓扑，但 HUB 描述符、物理磁盘 IOCTL 和 SMART 可能不可读。"),
             L"USBInfo", MB_OK | MB_ICONWARNING);
         return 0;
     }
@@ -369,16 +481,25 @@ LRESULT CMainFrame::OnElevate(WORD, WORD, HWND, BOOL&)
 
 LRESULT CMainFrame::OnAbout(WORD, WORD, HWND, BOOL&)
 {
-    ::MessageBoxW(m_hWnd,
-        L"USBInfo 1.0\n\n"
-        L"基于 WTL / C++20 / Win32 的 USB 拓扑、HUB、存储与测速工具。\n\n"
-        L"• 左侧树展示 USB 主机控制器 → HUB → 设备 → 接口/存储/端口的级联关系\n"
-        L"• 读取 USB 描述符、Hub 芯片、驱动、速度、协议和 USB-C/复合端口信息\n"
-        L"• USB 存储容量、卷、桥接芯片、SMART（设备/驱动支持时）\n"
-        L"• 大/小数据顺序/随机读写测速（只写临时文件，不写裸盘）\n\n"
-        L"限制：标准 USB 协议不公开线缆 E-Marker、CC 线序、线材阻抗等信息；\n"
-        L"芯片型号根据 VID/PID 推断，NAND 闪存颗粒通常无法通过 USB 桥接器读取。",
-        L"关于 USBInfo", MB_OK | MB_ICONINFORMATION);
+    std::wstring message = L"USBInfo 1.0\n\n";
+    message += Tr(L"基于 WTL / C++20 / Win32 的 USB 拓扑、HUB、存储与测速工具。");
+    message += L"\n\n";
+    message += Tr(L"• 左侧树展示 USB 主机控制器 → HUB → 设备 → 接口/存储/端口的级联关系");
+    message += L"\n";
+    message += Tr(L"• 读取 USB 描述符、Hub 芯片、驱动、速度、协议和 USB-C/复合端口信息");
+    message += L"\n";
+    message += Tr(L"• USB 存储容量、卷、桥接芯片、SMART（设备/驱动支持时）");
+    message += L"\n";
+    message += Tr(L"• 大/小数据顺序/随机读写测速（只写临时文件，不写裸盘）");
+    message += L"\n\n";
+    message += Tr(L"限制：标准 USB 协议不公开线缆 E-Marker、CC 线序、线材阻抗等信息；\n"
+                   L"芯片型号根据 VID/PID 推断，NAND 闪存颗粒通常无法通过 USB 桥接器读取。");
+    message += L"\n\n";
+    message += Tr(L"作者：");
+    message += L"anpho & Deepseek\n";
+    message += Tr(L"网页：");
+    message += L"https://github.com/anpho/USBinfo";
+    ::MessageBoxW(m_hWnd, message.c_str(), Tr(L"关于 USBInfo"), MB_OK | MB_ICONINFORMATION);
     return 0;
 }
 
@@ -405,4 +526,3 @@ void CMainFrame::OnDestroy()
         m_scanThread.join();
     ::PostQuitMessage(0);
 }
-

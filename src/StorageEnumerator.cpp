@@ -3,6 +3,7 @@
 #include "DeviceProps.h"
 #include "ChipDb.h"
 #include "Smart.h"
+#include "Language.h"
 
 #include <initguid.h>
 #include <devguid.h>
@@ -238,7 +239,7 @@ bool QueryPartitionStyle(HANDLE disk, StorageInfo& storage)
     case PARTITION_STYLE_MBR: storage.partitionStyle = L"MBR"; break;
     case PARTITION_STYLE_GPT: storage.partitionStyle = L"GPT"; break;
     case PARTITION_STYLE_RAW: storage.partitionStyle = L"RAW"; break;
-    default:                  storage.partitionStyle = L"未知"; break;
+    default:                  storage.partitionStyle = Tr(L"未知"); break;
     }
     return true;
 }
@@ -402,7 +403,7 @@ void AttachStorageToNode(UsbSnapshot& snapshot, UsbNode& node, const StorageInfo
     child.instanceId = storage.pnpInstance.empty() ? (node.instanceId + L"#storage") : storage.pnpInstance;
     child.storage = storage;
     child.storage.present = true;
-    child.shortName = L"存储";
+    child.shortName = Tr(L"存储");
     child.description = storage.model;
     child.expanded = false;
     child.storage.bridgeVendor = node.chipVendor;
@@ -410,11 +411,11 @@ void AttachStorageToNode(UsbSnapshot& snapshot, UsbNode& node, const StorageInfo
     if (child.storage.bridgeChip.empty() && node.idProduct != 0)
     {
         wchar_t buffer[64] = {};
-        swprintf_s(buffer, L"USB 桥接芯片 (VID_%04X:PID_%04X)", node.idVendor, node.idProduct);
+        swprintf_s(buffer, Tr(L"USB 桥接芯片 (VID_%04X:PID_%04X)"), node.idVendor, node.idProduct);
         child.storage.bridgeChip = buffer;
     }
     if (child.storage.flashChip.empty())
-        child.storage.flashChip = L"无法读取（USB 桥接器不暴露 NAND/闪存颗粒型号）";
+        child.storage.flashChip = Tr(L"无法读取（USB 桥接器不暴露 NAND/闪存颗粒型号）");
     if (child.storage.controllerChip.empty())
         child.storage.controllerChip = child.storage.model;
 
@@ -507,22 +508,24 @@ void EnumerateUsbStorage(UsbSnapshot& snapshot, std::atomic_bool* cancel,
                     else
                     {
                         disk.storage.smartQueried = true;
-                        disk.storage.smartStatus = L"不可用";
-                        disk.storage.smartMessage = L"无法以读写方式打开物理磁盘；SMART 需要管理员权限。";
+                        disk.storage.smartStatus = Tr(L"不可用");
+                        disk.storage.smartMessage = Tr(L"无法以读写方式打开物理磁盘；SMART 需要管理员权限。");
                     }
                     ::CloseHandle(handle);
                 }
                 else
                 {
+                    wchar_t message[1024] = {};
+                    swprintf_s(message, Tr(L"无法打开物理磁盘：%s。容量和卷信息仍可通过卷 API 获取。"),
+                        GetLastErrorMessage(::GetLastError()).c_str());
                     disk.storage.smartQueried = true;
-                    disk.storage.smartStatus = L"不可用";
-                    disk.storage.smartMessage = L"无法打开物理磁盘：" + GetLastErrorMessage(::GetLastError()) +
-                        L"。容量和卷信息仍可通过卷 API 获取。";
+                    disk.storage.smartStatus = Tr(L"不可用");
+                    disk.storage.smartMessage = message;
                 }
             }
 
             if (disk.storage.model.empty())
-                disk.storage.model = L"USB 存储设备";
+                disk.storage.model = Tr(L"USB 存储设备");
             disk.storage.present = true;
             if (disk.storage.busType.empty())
                 disk.storage.busType = L"USB";
@@ -533,7 +536,7 @@ void EnumerateUsbStorage(UsbSnapshot& snapshot, std::atomic_bool* cancel,
     }
 
     if (progress)
-        progress(L"关联卷、容量与文件系统…");
+        progress(Tr(L"关联卷、容量与文件系统…"));
     EnumerateVolumes(disks);
 
     for (auto& disk : disks)
@@ -553,13 +556,13 @@ void EnumerateUsbStorage(UsbSnapshot& snapshot, std::atomic_bool* cancel,
         disk.storage.freeBytes = volumeFree;
         disk.storage.volumes = disk.volumes;
         if (disk.storage.smartStatus.empty())
-            disk.storage.smartStatus = L"未查询";
+            disk.storage.smartStatus = Tr(L"未查询");
         if (disk.storage.health.empty())
-            disk.storage.health = disk.storage.smartAvailable ? disk.storage.smartStatus : L"未知";
+            disk.storage.health = disk.storage.smartAvailable ? disk.storage.smartStatus : std::wstring(Tr(L"未知"));
         if (disk.storage.partitionStyle.empty())
-            disk.storage.partitionStyle = L"未知";
+            disk.storage.partitionStyle = Tr(L"未知");
         if (disk.storage.flashChip.empty())
-            disk.storage.flashChip = L"无法读取（USB 桥接器不暴露 NAND/闪存颗粒型号）";
+            disk.storage.flashChip = Tr(L"无法读取（USB 桥接器不暴露 NAND/闪存颗粒型号）");
 
         UsbNode* target = nullptr;
         if (!disk.usbAncestor.empty())
@@ -619,13 +622,13 @@ void EnumerateUsbStorage(UsbSnapshot& snapshot, std::atomic_bool* cancel,
         if (partial.model.empty())
             partial.model = node->description;
         if (partial.model.empty())
-            partial.model = L"USB 存储设备";
+            partial.model = Tr(L"USB 存储设备");
         partial.bridgeVendor = node->chipVendor;
         partial.bridgeChip = node->chipModel;
         partial.busType = L"USB";
-        partial.smartStatus = L"不可用";
-        partial.smartMessage = L"未找到对应的磁盘/卷；设备可能没有媒体或驱动未加载。";
-        partial.flashChip = L"无法读取";
+        partial.smartStatus = Tr(L"不可用");
+        partial.smartMessage = Tr(L"未找到对应的磁盘/卷；设备可能没有媒体或驱动未加载。");
+        partial.flashChip = Tr(L"无法读取");
         AttachStorageToNode(snapshot, *node, partial);
     }
 }

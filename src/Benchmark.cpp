@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Benchmark.h"
 #include "Model.h"
+#include "Language.h"
 
 #include <malloc.h>
 
@@ -55,7 +56,7 @@ bool OpenTestFile(TempBenchFile& file, const BenchmarkConfig& config, std::wstri
     file.path = MakeTempPath(config.volumeRoot);
     if (file.path.empty())
     {
-        error = L"无效的卷路径。";
+        error = Tr(L"无效的卷路径。");
         return false;
     }
 
@@ -72,7 +73,10 @@ bool OpenTestFile(TempBenchFile& file, const BenchmarkConfig& config, std::wstri
     }
     if (file.handle == INVALID_HANDLE_VALUE)
     {
-        error = L"无法创建测试文件：" + file.path + L"；" + GetLastErrorMessage(::GetLastError());
+        wchar_t message[1024] = {};
+        swprintf_s(message, Tr(L"无法创建测试文件：%s；%s"),
+            file.path.c_str(), GetLastErrorMessage(::GetLastError()).c_str());
+        error = message;
         return false;
     }
 
@@ -84,7 +88,10 @@ bool OpenTestFile(TempBenchFile& file, const BenchmarkConfig& config, std::wstri
         !::SetFilePointerEx(file.handle, zero, nullptr, FILE_BEGIN) ||
         !::FlushFileBuffers(file.handle))
     {
-        error = L"无法预分配测试文件：" + GetLastErrorMessage(::GetLastError());
+        wchar_t message[1024] = {};
+        swprintf_s(message, Tr(L"无法预分配测试文件：%s"),
+            GetLastErrorMessage(::GetLastError()).c_str());
+        error = message;
         return false;
     }
     return true;
@@ -103,7 +110,7 @@ bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t bl
 
     if (file == INVALID_HANDLE_VALUE || bytes == 0 || blockSize == 0 || bytes % blockSize != 0)
     {
-        error = L"测试参数无效。";
+        error = Tr(L"测试参数无效。");
         result.error = error;
         return false;
     }
@@ -111,7 +118,7 @@ bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t bl
     void* raw = _aligned_malloc(blockSize, 4096);
     if (raw == nullptr)
     {
-        error = L"无法分配测试缓冲区。";
+        error = Tr(L"无法分配测试缓冲区。");
         result.error = error;
         return false;
     }
@@ -137,7 +144,7 @@ bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t bl
     {
         if (cancel.load())
         {
-            localError = L"已取消。";
+            localError = Tr(L"已取消。");
             ok = false;
             break;
         }
@@ -148,7 +155,9 @@ bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t bl
         position.QuadPart = static_cast<LONGLONG>(offset);
         if (!::SetFilePointerEx(file, position, nullptr, FILE_BEGIN))
         {
-            localError = L"定位失败：" + GetLastErrorMessage(::GetLastError());
+            wchar_t message[1024] = {};
+            swprintf_s(message, Tr(L"定位失败：%s"), GetLastErrorMessage(::GetLastError()).c_str());
+            localError = message;
             ok = false;
             break;
         }
@@ -161,7 +170,10 @@ bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t bl
             ioOk = ::ReadFile(file, buffer, blockSize, &transferred, nullptr);
         if (!ioOk || transferred != blockSize)
         {
-            localError = (write ? L"写入失败：" : L"读取失败：") + GetLastErrorMessage(::GetLastError());
+            wchar_t message[1024] = {};
+            swprintf_s(message, write ? Tr(L"写入失败：%s") : Tr(L"读取失败：%s"),
+                GetLastErrorMessage(::GetLastError()).c_str());
+            localError = message;
             ok = false;
             break;
         }
@@ -194,7 +206,9 @@ bool RunStage(HANDLE file, const std::wstring& name, uint64_t bytes, uint32_t bl
     {
         if (!::FlushFileBuffers(file))
         {
-            localError = L"刷新写入缓存失败：" + GetLastErrorMessage(::GetLastError());
+            wchar_t message[1024] = {};
+            swprintf_s(message, Tr(L"刷新写入缓存失败：%s"), GetLastErrorMessage(::GetLastError()).c_str());
+            localError = message;
             ok = false;
         }
     }
@@ -235,20 +249,24 @@ bool RunBenchmark(const BenchmarkConfig& config, const std::atomic_bool& cancel,
 {
     BenchmarkUpdate initial;
     initial.percent = 0;
-    initial.stage = L"检查可用空间…";
+    initial.stage = Tr(L"检查可用空间…");
     callback(initial);
 
     ULARGE_INTEGER freeAvailable = {};
     ULARGE_INTEGER total = {};
     ULARGE_INTEGER totalFree = {};
     if (!::GetDiskFreeSpaceExW(config.volumeRoot.c_str(), &freeAvailable, &total, &totalFree))
-        return SendError(callback, L"无法读取卷可用空间：" + GetLastErrorMessage(::GetLastError()));
+    {
+        wchar_t message[1024] = {};
+        swprintf_s(message, Tr(L"无法读取卷可用空间：%s"), GetLastErrorMessage(::GetLastError()).c_str());
+        return SendError(callback, message);
+    }
 
     uint64_t required = config.largeBytes + 64ull * 1024 * 1024;
     if (freeAvailable.QuadPart < required)
     {
         wchar_t message[256] = {};
-        swprintf_s(message, L"可用空间不足：需要约 %s，当前可用 %s。",
+        swprintf_s(message, Tr(L"可用空间不足：需要约 %s，当前可用 %s。"),
             FormatBytesShort(required).c_str(), FormatBytesShort(freeAvailable.QuadPart).c_str());
         return SendError(callback, message);
     }
@@ -262,7 +280,7 @@ bool RunBenchmark(const BenchmarkConfig& config, const std::atomic_bool& cancel,
     {
         BenchmarkUpdate update;
         update.percent = 0;
-        update.stage = L"提示：文件系统不支持无缓冲 I/O，测试使用系统缓存。";
+        update.stage = Tr(L"提示：文件系统不支持无缓冲 I/O，测试使用系统缓存。");
         callback(update);
     }
 
@@ -281,14 +299,14 @@ bool RunBenchmark(const BenchmarkConfig& config, const std::atomic_bool& cancel,
 
     const Stage stages[] =
     {
-        { L"大文件顺序写入（1 MiB）", config.largeBytes, config.largeBlock, true, true },
-        { L"大文件顺序读取（1 MiB）", config.largeBytes, config.largeBlock, false, true },
-        { L"4K 随机写入", smallBytes, config.smallBlock, true, false },
-        { L"4K 随机读取", smallBytes, config.smallBlock, false, false },
-        { L"4K 顺序写入", smallBytes, config.smallBlock, true, true },
-        { L"4K 顺序读取", smallBytes, config.smallBlock, false, true },
-        { L"1 MiB 随机写入", config.largeBytes, config.largeBlock, true, false },
-        { L"1 MiB 随机读取", config.largeBytes, config.largeBlock, false, false },
+        { Tr(L"大文件顺序写入（1 MiB）"), config.largeBytes, config.largeBlock, true, true },
+        { Tr(L"大文件顺序读取（1 MiB）"), config.largeBytes, config.largeBlock, false, true },
+        { Tr(L"4K 随机写入"), smallBytes, config.smallBlock, true, false },
+        { Tr(L"4K 随机读取"), smallBytes, config.smallBlock, false, false },
+        { Tr(L"4K 顺序写入"), smallBytes, config.smallBlock, true, true },
+        { Tr(L"4K 顺序读取"), smallBytes, config.smallBlock, false, true },
+        { Tr(L"1 MiB 随机写入"), config.largeBytes, config.largeBlock, true, false },
+        { Tr(L"1 MiB 随机读取"), config.largeBytes, config.largeBlock, false, false },
     };
 
     uint64_t totalBytes = 0;
@@ -300,7 +318,7 @@ bool RunBenchmark(const BenchmarkConfig& config, const std::atomic_bool& cancel,
     for (const auto& stage : stages)
     {
         if (cancel.load())
-            return SendError(callback, L"测试已取消。");
+            return SendError(callback, Tr(L"测试已取消。"));
 
         BenchmarkUpdate update;
         update.percent = totalBytes == 0 ? 0 : static_cast<int>(completed * 100 / totalBytes);
@@ -311,7 +329,7 @@ bool RunBenchmark(const BenchmarkConfig& config, const std::atomic_bool& cancel,
         if (!RunStage(file.handle, stage.name, stage.bytes, stage.block, stage.write, stage.sequential,
             seed++, cancel, callback, completed, totalBytes, result, error))
         {
-            return SendError(callback, std::wstring(stage.name) + L"：" + error, &result);
+            return SendError(callback, std::wstring(stage.name) + Tr(L"：") + error, &result);
         }
 
         completed += stage.bytes;
@@ -323,10 +341,10 @@ bool RunBenchmark(const BenchmarkConfig& config, const std::atomic_bool& cancel,
 
     BenchmarkUpdate done;
     done.percent = 100;
-    done.stage = L"测试完成";
+    done.stage = Tr(L"测试完成");
     done.done = true;
     done.ok = true;
-    done.message = L"所有测试已完成。测试文件已删除。";
+    done.message = Tr(L"所有测试已完成。测试文件已删除。");
     callback(done);
     return true;
 }

@@ -3,6 +3,7 @@
 #include "StorageEnumerator.h"
 #include "DeviceProps.h"
 #include "ChipDb.h"
+#include "Language.h"
 
 #include <initguid.h>
 #include <devguid.h>
@@ -143,7 +144,7 @@ void FillDeviceProperties(HDEVINFO set, SP_DEVINFO_DATA& data, UsbNode& node)
 
     uint32_t value = 0;
     if (GetDevicePropertyUInt32(set, data, DEVPKEY_Device_ProblemCode, value) && value != 0)
-        node.problem = L"问题代码 " + std::to_wstring(value);
+        node.problem = std::wstring(Tr(L"问题代码")) + L" " + std::to_wstring(value);
     if (GetDevicePropertyUInt32(set, data, DEVPKEY_Device_Capabilities, value))
         node.capabilities = FormatHex(value);
     if (GetDevicePropertyUInt32(set, data, DEVPKEY_Device_ConfigFlags, value))
@@ -154,7 +155,7 @@ void FillDeviceProperties(HDEVINFO set, SP_DEVINFO_DATA& data, UsbNode& node)
     if (::CM_Get_DevNode_Status(&status, &problem, data.DevInst, 0) == CR_SUCCESS)
     {
         if ((status & DN_HAS_PROBLEM) != 0 && node.problem.empty())
-            node.problem = L"问题代码 " + std::to_wstring(problem);
+            node.problem = std::wstring(Tr(L"问题代码")) + L" " + std::to_wstring(problem);
     }
 
     node.connected = true;
@@ -252,27 +253,27 @@ void FillDeviceProperties(HDEVINFO set, SP_DEVINFO_DATA& data, UsbNode& node)
         {
         case 0x8086:
             node.chipVendor = L"Intel";
-            node.chipModel = L"PCH 集成 USB 根集线器";
+            node.chipModel = Tr(L"PCH 集成 USB 根集线器");
             node.chipSource = L"根集线器 VID 推断";
             break;
         case 0x1022:
             node.chipVendor = L"AMD";
-            node.chipModel = L"芯片组集成 USB 根集线器";
+            node.chipModel = Tr(L"芯片组集成 USB 根集线器");
             node.chipSource = L"根集线器 VID 推断";
             break;
         case 0x1B21:
             node.chipVendor = L"ASMedia";
-            node.chipModel = L"USB 根集线器";
+            node.chipModel = Tr(L"USB 根集线器");
             node.chipSource = L"根集线器 VID 推断";
             break;
         case 0x1912:
             node.chipVendor = L"Renesas";
-            node.chipModel = L"USB 根集线器";
+            node.chipModel = Tr(L"USB 根集线器");
             node.chipSource = L"根集线器 VID 推断";
             break;
         default:
             node.chipVendor = L"未知";
-            node.chipModel = L"USB 根集线器";
+            node.chipModel = Tr(L"USB 根集线器");
             node.chipSource = L"根集线器 VID 推断";
             break;
         }
@@ -328,10 +329,10 @@ std::wstring HubTypeText(USB_HUB_TYPE type)
 {
     switch (type)
     {
-    case UsbRootHub: return L"USB 根集线器";
-    case Usb20Hub:   return L"USB 2.0 Hub";
-    case Usb30Hub:   return L"USB 3.x Hub";
-    default:         return L"USB Hub";
+    case UsbRootHub: return Tr(L"USB 根集线器");
+    case Usb20Hub:   return Tr(L"USB 2.0 Hub");
+    case Usb30Hub:   return Tr(L"USB 3.x Hub");
+    default:         return Tr(L"USB Hub");
     }
 }
 
@@ -415,10 +416,15 @@ void QueryConfigurationDescriptor(HANDLE hub, ULONG port, UsbNode& node)
 
     auto* config = reinterpret_cast<USB_CONFIGURATION_DESCRIPTOR*>(buffer);
     WORD totalLength = std::min<WORD>(config->wTotalLength, static_cast<WORD>(actual));
-    node.configSummary = L"配置值 " + std::to_wstring(config->bConfigurationValue) +
-        L"，" + std::to_wstring(config->bNumInterfaces) + L" 个接口，" +
-        ((config->bmAttributes & USB_CONFIG_SELF_POWERED) ? L"自供电" : L"总线供电") +
-        L"，最大 " + std::to_wstring(static_cast<unsigned>(config->MaxPower) * 2) + L" mA";
+    {
+        wchar_t configText[256] = {};
+        swprintf_s(configText, Tr(L"配置值 %u，%u 个接口，%s，最大 %u mA"),
+            static_cast<unsigned>(config->bConfigurationValue),
+            static_cast<unsigned>(config->bNumInterfaces),
+            (config->bmAttributes & USB_CONFIG_SELF_POWERED) ? Tr(L"自供电") : Tr(L"总线供电"),
+            static_cast<unsigned>(config->MaxPower) * 2);
+        node.configSummary = configText;
+    }
 
     int interfaceIndex = -1;
     for (DWORD offset = 0; offset + 2 <= totalLength;)
@@ -437,11 +443,11 @@ void QueryConfigurationDescriptor(HANDLE hub, ULONG port, UsbNode& node)
             interfaceInfo.classCode = descriptor[5];
             interfaceInfo.subClass = descriptor[6];
             interfaceInfo.protocol = descriptor[7];
-            interfaceInfo.text = L"接口 " + std::to_wstring(interfaceInfo.number) +
+            interfaceInfo.text = std::wstring(Tr(L"接口")) + L" " + std::to_wstring(interfaceInfo.number) +
                 L" (Alt " + std::to_wstring(interfaceInfo.alternate) + L"): " +
                 UsbClassName(interfaceInfo.classCode);
             if (interfaceInfo.endpoints > 0)
-                interfaceInfo.text += L"，端点 " + std::to_wstring(interfaceInfo.endpoints);
+                interfaceInfo.text += std::wstring(Tr(L"，端点")) + L" " + std::to_wstring(interfaceInfo.endpoints);
             node.interfaces.push_back(interfaceInfo);
             interfaceIndex = static_cast<int>(node.interfaces.size()) - 1;
             if (interfaceInfo.classCode == 0x08)
@@ -455,7 +461,7 @@ void QueryConfigurationDescriptor(HANDLE hub, ULONG port, UsbNode& node)
         }
         else if (type == 0x21 && interfaceIndex >= 0 && length >= 9)
         {
-            node.interfaces[static_cast<size_t>(interfaceIndex)].text += L"，HID";
+            node.interfaces[static_cast<size_t>(interfaceIndex)].text += Tr(L"，HID");
         }
         offset += length;
     }
@@ -471,7 +477,7 @@ std::wstring BillboardSummary(const BYTE* data, DWORD size)
     auto* billboard = reinterpret_cast<const USB_DEVICE_CAPABILITY_BILLBOARD_DESCRIPTOR*>(data);
     int modes = billboard->bNumberOfAlternateModes;
     if (modes <= 0)
-        return L"USB Billboard（未报告备用模式）";
+        return Tr(L"USB Billboard（未报告备用模式）");
     std::vector<std::wstring> items;
     for (int i = 0; i < modes && i < 16; ++i)
     {
@@ -484,8 +490,8 @@ std::wstring BillboardSummary(const BYTE* data, DWORD size)
         items.emplace_back(buffer);
     }
     if (items.empty())
-        return L"USB Billboard";
-    return L"USB Billboard: " + JoinStrings(items, L", ") + L"（Alternate Mode）";
+        return Tr(L"USB Billboard");
+    return std::wstring(L"USB Billboard: ") + JoinStrings(items, L", ") + Tr(L"（Alternate Mode）");
 }
 
 void QueryBosDescriptor(HANDLE hub, ULONG port, UsbNode& node)
@@ -588,22 +594,26 @@ void FillCableFromConnector(HANDLE hub, ULONG port, UsbNode& node)
 
     std::vector<std::wstring> parts;
     if (cable.typeC)
-        parts.emplace_back(L"USB Type-C 连接器");
+        parts.emplace_back(Tr(L"USB Type-C 连接器"));
     if (cable.userConnectable)
-        parts.emplace_back(L"外部可插拔");
+        parts.emplace_back(Tr(L"外部可插拔"));
     if (cable.debugCapable)
-        parts.emplace_back(L"支持调试");
+        parts.emplace_back(Tr(L"支持调试"));
     if (cable.companionPort != 0)
-        parts.emplace_back(L"与端口 #" + std::to_wstring(cable.companionPort) + L" 共用物理连接器");
+    {
+        wchar_t sharedText[128] = {};
+        swprintf_s(sharedText, Tr(L"与端口 #%u 共用物理连接器"), static_cast<unsigned>(cable.companionPort));
+        parts.emplace_back(sharedText);
+    }
     if (!cable.companionHub.empty())
-        parts.emplace_back(L"共享 Hub: " + cable.companionHub);
-    cable.summary = JoinStrings(parts, L"；");
+        parts.emplace_back(std::wstring(Tr(L"共享 Hub")) + L": " + cable.companionHub);
+    cable.summary = JoinStrings(parts, Tr(L"；"));
 
     const std::wstring connectorSource = L"IOCTL_USB_GET_PORT_CONNECTOR_PROPERTIES";
     if (cable.source.empty())
         cable.source = connectorSource;
     else
-        cable.source += L"；" + connectorSource;
+        cable.source += std::wstring(Tr(L"；")) + connectorSource;
 }
 
 std::wstring GetDriverKeyName(HANDLE hub, ULONG port)
@@ -684,7 +694,7 @@ void EnumerateHubs(UsbSnapshot& snapshot, std::atomic_bool* cancel,
     }
 
     if (progress)
-        progress(L"读取 HUB 端口与 USB 描述符…");
+        progress(Tr(L"读取 HUB 端口与 USB 描述符…"));
 
     std::vector<int> hubIds;
     for (const auto& node : snapshot.nodes)
@@ -703,7 +713,9 @@ void EnumerateHubs(UsbSnapshot& snapshot, std::atomic_bool* cancel,
         auto pathIt = interfacePaths.find(hubNode->instanceId);
         if (pathIt == interfacePaths.end())
         {
-            AddWarning(snapshot, L"无法打开 HUB 接口：" + hubNode->instanceId + L"（端口信息可能不完整）");
+            wchar_t message[1024] = {};
+            swprintf_s(message, Tr(L"无法打开 HUB 接口：%s（端口信息可能不完整）"), hubNode->instanceId.c_str());
+            AddWarning(snapshot, message);
             continue;
         }
 
@@ -716,7 +728,10 @@ void EnumerateHubs(UsbSnapshot& snapshot, std::atomic_bool* cancel,
         }
         if (hub == INVALID_HANDLE_VALUE)
         {
-            AddWarning(snapshot, L"无法打开 HUB 接口：" + hubNode->instanceId + L"（" + GetLastErrorMessage(::GetLastError()) + L"）");
+            wchar_t message[1024] = {};
+            swprintf_s(message, Tr(L"无法打开 HUB 接口：%s（%s）"),
+                hubNode->instanceId.c_str(), GetLastErrorMessage(::GetLastError()).c_str());
+            AddWarning(snapshot, message);
             continue;
         }
 
@@ -728,8 +743,11 @@ void EnumerateHubs(UsbSnapshot& snapshot, std::atomic_bool* cancel,
             &nodeInfo, sizeof(nodeInfo), &returned, nullptr))
         {
             hubNode->hubPorts = nodeInfo.u.HubInformation.HubDescriptor.bNumberOfPorts;
-            hubNode->hubPower = L"上电延迟 " + std::to_wstring(nodeInfo.u.HubInformation.HubDescriptor.bPowerOnToPowerGood * 2) +
-                L" ms，集线器电流 " + std::to_wstring(nodeInfo.u.HubInformation.HubDescriptor.bHubControlCurrent) + L" mA";
+            wchar_t powerText[256] = {};
+            swprintf_s(powerText, Tr(L"上电延迟 %u ms，集线器电流 %u mA"),
+                static_cast<unsigned>(nodeInfo.u.HubInformation.HubDescriptor.bPowerOnToPowerGood) * 2,
+                static_cast<unsigned>(nodeInfo.u.HubInformation.HubDescriptor.bHubControlCurrent));
+            hubNode->hubPower = powerText;
         }
 
         USB_HUB_INFORMATION_EX hubInfo = {};
@@ -741,13 +759,16 @@ void EnumerateHubs(UsbSnapshot& snapshot, std::atomic_bool* cancel,
                 hubNode->hubPorts = hubInfo.HighestPortNumber;
             if (hubInfo.HubType != Usb30Hub)
             {
-                hubNode->hubPower = L"上电延迟 " + std::to_wstring(hubInfo.u.UsbHubDescriptor.bPowerOnToPowerGood * 2) +
-                    L" ms，集线器电流 " + std::to_wstring(hubInfo.u.UsbHubDescriptor.bHubControlCurrent) + L" mA";
+                wchar_t powerText[256] = {};
+                swprintf_s(powerText, Tr(L"上电延迟 %u ms，集线器电流 %u mA"),
+                    static_cast<unsigned>(hubInfo.u.UsbHubDescriptor.bPowerOnToPowerGood) * 2,
+                    static_cast<unsigned>(hubInfo.u.UsbHubDescriptor.bHubControlCurrent));
+                hubNode->hubPower = powerText;
             }
         }
         else
         {
-            hubNode->hubType = hubNode->isRootHub ? L"USB 根集线器" : L"USB Hub";
+            hubNode->hubType = hubNode->isRootHub ? std::wstring(Tr(L"USB 根集线器")) : std::wstring(Tr(L"USB Hub"));
         }
 
         USB_HUB_CAPABILITIES_EX capabilities = {};
@@ -756,18 +777,18 @@ void EnumerateHubs(UsbSnapshot& snapshot, std::atomic_bool* cancel,
         {
             std::vector<std::wstring> flags;
             if (capabilities.CapabilityFlags.HubIsHighSpeedCapable)
-                flags.emplace_back(L"HighSpeed 能力");
+                flags.emplace_back(Tr(L"HighSpeed 能力"));
             if (capabilities.CapabilityFlags.HubIsHighSpeed)
-                flags.emplace_back(L"HighSpeed 运行");
+                flags.emplace_back(Tr(L"HighSpeed 运行"));
             if (capabilities.CapabilityFlags.HubIsMultiTtCapable)
-                flags.emplace_back(L"Multi-TT 能力");
+                flags.emplace_back(Tr(L"Multi-TT 能力"));
             if (capabilities.CapabilityFlags.HubIsMultiTt)
-                flags.emplace_back(L"Multi-TT 运行");
+                flags.emplace_back(Tr(L"Multi-TT 运行"));
             if (capabilities.CapabilityFlags.HubIsBusPowered)
-                flags.emplace_back(L"总线供电");
+                flags.emplace_back(Tr(L"总线供电"));
             if (capabilities.CapabilityFlags.HubIsArmedWakeOnConnect)
-                flags.emplace_back(L"连接唤醒");
-            hubNode->hubCapabilities = JoinStrings(flags, L"；");
+                flags.emplace_back(Tr(L"连接唤醒"));
+            hubNode->hubCapabilities = JoinStrings(flags, Tr(L"；"));
         }
 
         int typeCPorts = 0;
@@ -797,8 +818,10 @@ void EnumerateHubs(UsbSnapshot& snapshot, std::atomic_bool* cancel,
             int nodeId = FindNodeForPort(snapshot, hubNode->instanceId, port, info->DeviceDescriptor, driverKey);
             if (nodeId < 0)
             {
-                AddWarning(snapshot, L"HUB 端口 " + std::to_wstring(port) + L" 上的设备未匹配到 PnP 节点（" +
-                    hubNode->instanceId + L"）");
+                wchar_t message[1024] = {};
+                swprintf_s(message, Tr(L"HUB 端口 %u 上的设备未匹配到 PnP 节点（%s）"),
+                    static_cast<unsigned>(port), hubNode->instanceId.c_str());
+                AddWarning(snapshot, message);
                 continue;
             }
 
@@ -842,14 +865,15 @@ void EnumerateHubs(UsbSnapshot& snapshot, std::atomic_bool* cancel,
             device->usbSerial = QueryStringDescriptor(hub, port, info->DeviceDescriptor.iSerialNumber);
 
             if (device->isHub)
-                hubNode->hubCapabilities += (hubNode->hubCapabilities.empty() ? L"" : L"；") + std::wstring(L"下游 Hub");
+                hubNode->hubCapabilities += (hubNode->hubCapabilities.empty() ? std::wstring() : std::wstring(Tr(L"；"))) + Tr(L"下游 Hub");
             if (device->cable.typeC)
                 ++typeCPorts;
         }
 
         if (typeCPorts > 0)
         {
-            hubNode->extraRows.push_back({ L"端口 / 线缆", L"USB Type-C 端口", std::to_wstring(typeCPorts) + L" 个" });
+            hubNode->extraRows.push_back({ L"端口 / 线缆", L"USB Type-C 端口",
+                std::to_wstring(typeCPorts) + L" " + Tr(L"个") });
         }
 
         ::CloseHandle(hub);
@@ -932,15 +956,12 @@ void FinalizeSnapshot(UsbSnapshot& snapshot)
             node.title = BuildNodeTitle(node);
     }
     if (!snapshot.nodes.empty() && snapshot.computerId >= 0)
-        snapshot.nodes[static_cast<size_t>(snapshot.computerId)].title = L"本机 USB 拓扑";
+        snapshot.nodes[static_cast<size_t>(snapshot.computerId)].title = Tr(L"本机 USB 拓扑");
 
-    wchar_t summary[256] = {};
-    swprintf_s(summary, L"主机控制器 %d · Hub %d · USB 设备 %d · 存储 %d",
-        snapshot.hostCount, snapshot.hubCount, snapshot.deviceCount, snapshot.storageCount);
-    snapshot.summary = summary;
+    snapshot.summary = BuildSnapshotSummary(snapshot);
 
     if (snapshot.deviceCount == 0)
-        AddWarning(snapshot, L"未发现已连接的 USB 设备。请检查设备连接，或尝试以管理员身份运行。");
+        AddWarning(snapshot, Tr(L"未发现已连接的 USB 设备。请检查设备连接，或尝试以管理员身份运行。"));
 }
 }
 
@@ -951,19 +972,21 @@ std::shared_ptr<UsbSnapshot> UsbEnumerator::Scan(std::atomic_bool* cancel,
     snapshot->elevated = IsProcessElevated();
 
     if (progress)
-        progress(L"枚举 USB 主机控制器与设备…");
+        progress(Tr(L"枚举 USB 主机控制器与设备…"));
 
     UsbNode computer;
     computer.kind = NodeKind::Computer;
     computer.instanceId = L"<computer>";
-    computer.title = L"本机 USB 拓扑";
-    computer.shortName = L"计算机";
+    computer.title = Tr(L"本机 USB 拓扑");
+    computer.shortName = Tr(L"计算机");
     snapshot->computerId = AddNode(*snapshot, std::move(computer));
 
     HDEVINFO set = ::SetupDiGetClassDevsW(nullptr, nullptr, nullptr, DIGCF_PRESENT | DIGCF_ALLCLASSES);
     if (set == INVALID_HANDLE_VALUE)
     {
-        AddWarning(*snapshot, L"SetupAPI 枚举失败：" + GetLastErrorMessage(::GetLastError()));
+        wchar_t message[1024] = {};
+        swprintf_s(message, Tr(L"SetupAPI 枚举失败：%s"), GetLastErrorMessage(::GetLastError()).c_str());
+        AddWarning(*snapshot, message);
         snapshot->setupApiOk = false;
         FinalizeSnapshot(*snapshot);
         return snapshot;
@@ -1103,16 +1126,16 @@ std::shared_ptr<UsbSnapshot> UsbEnumerator::Scan(std::atomic_bool* cancel,
     EnumerateHubs(*snapshot, cancel, progress);
 
     if (progress)
-        progress(L"读取存储设备与容量信息…");
+        progress(Tr(L"读取存储设备与容量信息…"));
     EnumerateUsbStorage(*snapshot, cancel, progress);
 
     AddCableNodes(*snapshot);
     FinalizeSnapshot(*snapshot);
 
     if (!snapshot->elevated)
-        AddWarning(*snapshot, L"标准用户：HUB 描述符、物理磁盘与 SMART 可能受限，可用“查看 → 以管理员身份重启”提权。");
+        AddWarning(*snapshot, Tr(L"标准用户：HUB 描述符、物理磁盘与 SMART 可能受限，可用“查看 → 以管理员身份重启”提权。"));
     if (!snapshot->hubAccessOk)
-        AddWarning(*snapshot, L"没有成功打开任何 USB HUB 接口，端口速度/描述符/线缆信息可能缺失。");
+        AddWarning(*snapshot, Tr(L"没有成功打开任何 USB HUB 接口，端口速度/描述符/线缆信息可能缺失。"));
 
     return snapshot;
 }

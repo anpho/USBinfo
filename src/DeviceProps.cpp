@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "DeviceProps.h"
+#include "Language.h"
 
 #include <initguid.h>
 #include <devpkey.h>
@@ -437,7 +438,7 @@ bool ResolveDriverFile(const std::wstring& service, const std::wstring& driverIn
         if (ResolveDriverImagePath(imagePath, resolved))
         {
             path = resolved;
-            kind = EndsWithNoCase(path, L".inf") ? L"INF 文件" : L"驱动文件";
+            kind = EndsWithNoCase(path, L".inf") ? Tr(L"INF 文件") : Tr(L"驱动文件");
             return true;
         }
     }
@@ -460,7 +461,7 @@ bool ResolveDriverFile(const std::wstring& service, const std::wstring& driverIn
         if (IsRegularFile(infPath))
         {
             path = infPath;
-            kind = L"INF 文件";
+            kind = Tr(L"INF 文件");
             return true;
         }
     }

@@ -276,6 +276,10 @@ std::wstring NodeKindShortName(NodeKind kind);
 std::wstring BuildNodeTitle(const UsbNode& node);
 std::vector<InfoRow> BuildNodeRows(const UsbNode& node);
 std::wstring BuildNodePlainText(const UsbNode& node);
+std::wstring BuildSnapshotSummary(const UsbSnapshot& snapshot);
+// Rebuilds the cached tree titles and the status summary in the current UI
+// language (used after a language switch without a rescan).
+void RefreshSnapshotText(UsbSnapshot& snapshot);
 std::wstring BuildFullReport(const UsbSnapshot& snapshot);
 
 std::wstring UsbClassName(int classCode);

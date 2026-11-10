@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Model.h"
 #include "DeviceProps.h"
+#include "Language.h"
 
 #include <cstdio>
 
@@ -34,28 +35,29 @@ std::wstring InterfaceNumberFromInstance(const std::wstring& instanceId)
 std::wstring ClassText(int classCode, int subClass, int protocol)
 {
     wchar_t buffer[128] = {};
-    swprintf_s(buffer, L"0x%02X (%s), 子类 0x%02X, 协议 0x%02X",
-        classCode, UsbClassName(classCode).c_str(), subClass, protocol);
+    swprintf_s(buffer, L"0x%02X (%s), %s 0x%02X, %s 0x%02X",
+        classCode, UsbClassName(classCode).c_str(),
+        Tr(L"子类"), subClass, Tr(L"协议"), protocol);
     return buffer;
 }
 
 std::wstring CableTitle(const CableInfo& cable)
 {
     if (cable.typeC)
-        return L"USB-C 连接器";
+        return Tr(L"USB-C 连接器");
     if (!cable.billboard.empty())
         return L"Billboard / Alt Mode";
     if (cable.portNumber > 0)
-        return L"端口 #" + std::to_wstring(cable.portNumber);
-    return L"线缆信息";
+        return std::wstring(Tr(L"端口 #")) + std::to_wstring(cable.portNumber);
+    return Tr(L"线缆信息");
 }
 
 std::wstring StorageTitle(const StorageInfo& storage)
 {
-    std::wstring model = storage.model.empty() ? L"USB 存储设备" : storage.model;
+    std::wstring model = storage.model.empty() ? std::wstring(Tr(L"USB 存储设备")) : storage.model;
     if (storage.capacityBytes > 0)
-        return L"存储 · " + model + L" (" + FormatBytesShort(storage.capacityBytes) + L")";
-    return L"存储 · " + model;
+        return std::wstring(Tr(L"存储")) + L" · " + model + L" (" + FormatBytesShort(storage.capacityBytes) + L")";
+    return std::wstring(Tr(L"存储")) + L" · " + model;
 }
 
 constexpr size_t kMaxTreeTitleLength = 64;
@@ -108,7 +110,7 @@ std::wstring DeviceDisplayName(const UsbNode& node)
     if (!node.description.empty())
         return ShortenDeviceName(node.description);
     // Deliberately avoid VID/PID in the tree title; full IDs stay in BuildNodeRows.
-    return L"USB 设备";
+    return Tr(L"USB 设备");
 }
 
 std::wstring ChipDisplay(const UsbNode& node)
@@ -129,7 +131,9 @@ void AddRow(std::vector<InfoRow>& rows, const wchar_t* group, const wchar_t* key
     std::wstring cleaned = MakeSingleLine(value);
     if (cleaned.empty())
         return;
-    rows.push_back({ group, key, cleaned });
+    // Group and key are fixed labels; values are only translated when the whole
+    // value matches a table entry, so dynamic values pass through unchanged.
+    rows.push_back({ Tr(group), Tr(key), Tr(cleaned) });
 }
 
 void AddRow(std::vector<InfoRow>& rows, const wchar_t* group, const wchar_t* key, const wchar_t* value)
@@ -147,10 +151,10 @@ std::wstring VolumeSummary(const VolumeInfo& volume)
     if (volume.totalBytes > 0)
         parts.push_back(FormatBytes(volume.totalBytes));
     if (volume.freeBytes > 0)
-        parts.push_back(L"可用 " + FormatBytes(volume.freeBytes));
+        parts.push_back(std::wstring(Tr(L"可用")) + L" " + FormatBytes(volume.freeBytes));
     if (volume.readOnly)
-        parts.push_back(L"只读");
-    return JoinStrings(parts, L"，");
+        parts.push_back(Tr(L"只读"));
+    return JoinStrings(parts, Tr(L"，"));
 }
 
 std::wstring SmartRawValue(const SmartAttribute& attribute)
@@ -183,23 +187,23 @@ std::wstring NodeTreeText(const UsbSnapshot& snapshot, int nodeId, int depth)
 std::wstring BuildNodeTitle(const UsbNode& node)
 {
     if (node.kind == NodeKind::Computer)
-        return L"本机 USB 拓扑";
+        return Tr(L"本机 USB 拓扑");
 
     if (node.kind == NodeKind::Storage)
         return TrimTitle(StorageTitle(node.storage));
 
     if (node.kind == NodeKind::Cable)
     {
-        std::wstring title = L"线缆 · " + CableTitle(node.cable);
+        std::wstring title = std::wstring(Tr(L"线缆")) + L" · " + CableTitle(node.cable);
         if (node.cable.companionPort != 0)
-            title += L" · 共用 #" + std::to_wstring(node.cable.companionPort);
+            title += std::wstring(L" · ") + Tr(L"共用") + L" #" + std::to_wstring(node.cable.companionPort);
         return TrimTitle(title);
     }
 
     if (node.kind == NodeKind::HostController)
     {
         // Short form only: "USB 主机控制器 · Intel 500 Series Chipset xHCI".
-        std::wstring title = L"USB 主机控制器";
+        std::wstring title = Tr(L"USB 主机控制器");
         std::wstring chip;
         if (!node.chipModel.empty())
             chip = ChipDisplay(node);
@@ -219,7 +223,9 @@ std::wstring BuildNodeTitle(const UsbNode& node)
         // Hub titles only carry type / port count / short chip name.
         std::wstring type = node.hubType;
         if (type.empty())
-            type = node.kind == NodeKind::RootHub ? L"USB 根集线器" : L"USB Hub";
+            type = node.kind == NodeKind::RootHub ? std::wstring(Tr(L"USB 根集线器")) : std::wstring(Tr(L"USB Hub"));
+        else
+            type = Tr(type.c_str());
         std::wstring title = type;
 
         std::wstring chip;
@@ -231,7 +237,7 @@ std::wstring BuildNodeTitle(const UsbNode& node)
             chip.clear();
 
         if (node.hubPorts > 0)
-            title += L" · " + std::to_wstring(node.hubPorts) + L" 端口";
+            title += std::wstring(L" · ") + std::to_wstring(node.hubPorts) + L" " + Tr(L"端口");
         if (!chip.empty() && !ContainsNoCase(title, chip))
             title += L" · " + chip;
         return TrimTitle(title);
@@ -240,7 +246,7 @@ std::wstring BuildNodeTitle(const UsbNode& node)
     if (node.kind == NodeKind::Interface)
     {
         // "接口 00 · 描述"
-        std::wstring title = L"接口";
+        std::wstring title = Tr(L"接口");
         std::wstring number = InterfaceNumberFromInstance(node.instanceId);
         if (!number.empty())
             title += L" " + number;
@@ -255,7 +261,7 @@ std::wstring BuildNodeTitle(const UsbNode& node)
 
     if (node.kind == NodeKind::Usb4)
     {
-        return TrimTitle(L"USB4 · " + DeviceDisplayName(node));
+        return TrimTitle(std::wstring(Tr(L"USB4")) + L" · " + DeviceDisplayName(node));
     }
 
     std::wstring title;
@@ -264,7 +270,7 @@ std::wstring BuildNodeTitle(const UsbNode& node)
     else
         title = DeviceDisplayName(node);
     if (node.isUsbStorage)
-        title += L" · 存储";
+        title += std::wstring(L" · ") + Tr(L"存储");
     if (node.speedMbps > 0)
         title += L" · " + FormatMbpsShort(node.speedMbps);
     return TrimTitle(title);
@@ -274,7 +280,7 @@ std::vector<InfoRow> BuildNodeRows(const UsbNode& node)
 {
     std::vector<InfoRow> rows;
 
-    AddRow(rows, L"概要", L"名称", node.title.empty() ? BuildNodeTitle(node) : node.title);
+    AddRow(rows, L"概要", L"名称", BuildNodeTitle(node));
     AddRow(rows, L"概要", L"类型", NodeKindName(node.kind));
     AddRow(rows, L"概要", L"状态", node.problem.empty() ? L"正常" : node.problem);
     AddRow(rows, L"概要", L"实例 ID", node.instanceId);
@@ -400,8 +406,8 @@ std::vector<InfoRow> BuildNodeRows(const UsbNode& node)
         AddRow(rows, L"存储", L"可移动介质", storage.removable ? L"是" : L"否");
         AddRow(rows, L"存储", L"热插拔", storage.hotplug ? L"是" : L"未知");
         AddRow(rows, L"存储", L"分区样式", storage.partitionStyle);
-        AddRow(rows, L"存储", L"逻辑扇区", storage.logicalSector ? std::to_wstring(storage.logicalSector) + L" 字节" : L"");
-        AddRow(rows, L"存储", L"物理扇区", storage.physicalSector ? std::to_wstring(storage.physicalSector) + L" 字节" : L"");
+        AddRow(rows, L"存储", L"逻辑扇区", storage.logicalSector ? std::to_wstring(storage.logicalSector) + L" " + Tr(L"字节") : L"");
+        AddRow(rows, L"存储", L"物理扇区", storage.physicalSector ? std::to_wstring(storage.physicalSector) + L" " + Tr(L"字节") : L"");
         AddRow(rows, L"存储", L"桥接芯片厂商", storage.bridgeVendor);
         AddRow(rows, L"存储", L"桥接芯片", storage.bridgeChip);
         AddRow(rows, L"存储", L"主控/型号", storage.controllerChip);
@@ -413,7 +419,7 @@ std::vector<InfoRow> BuildNodeRows(const UsbNode& node)
         {
             const VolumeInfo& volume = storage.volumes[i];
             std::wstring root = volume.rootPath.empty() ? volume.volumeName : volume.rootPath;
-            AddRow(rows, L"存储", (L"卷 " + std::to_wstring(i + 1) + L" " + root).c_str(), VolumeSummary(volume));
+            AddRow(rows, L"存储", (std::wstring(Tr(L"卷")) + L" " + std::to_wstring(i + 1) + L" " + root).c_str(), VolumeSummary(volume));
         }
         if (!storage.smart.empty())
             AddRow(rows, L"SMART", L"属性数量", std::to_wstring(storage.smart.size()));
@@ -445,24 +451,45 @@ std::wstring BuildNodePlainText(const UsbNode& node)
     return result;
 }
 
+std::wstring BuildSnapshotSummary(const UsbSnapshot& snapshot)
+{
+    wchar_t summary[256] = {};
+    swprintf_s(summary, Tr(L"主机控制器 %d · Hub %d · USB 设备 %d · 存储 %d"),
+        snapshot.hostCount, snapshot.hubCount, snapshot.deviceCount, snapshot.storageCount);
+    return summary;
+}
+
+void RefreshSnapshotText(UsbSnapshot& snapshot)
+{
+    for (auto& node : snapshot.nodes)
+    {
+        if (node.kind == NodeKind::Computer)
+            node.title = Tr(L"本机 USB 拓扑");
+        else
+            node.title = BuildNodeTitle(node);
+    }
+    snapshot.summary = BuildSnapshotSummary(snapshot);
+}
+
 std::wstring BuildFullReport(const UsbSnapshot& snapshot)
 {
     std::wstring report;
-    report += L"USBInfo - USB 设备、HUB、存储与线缆信息报告\r\n";
-    report += L"生成时间: " + snapshot.generatedAt + L"\r\n";
-    report += L"运行权限: " + std::wstring(snapshot.elevated ? L"管理员" : L"标准用户") + L"\r\n";
-    report += L"系统: " + GetWindowsBuildString() + L"\r\n";
-    report += L"摘要: " + snapshot.summary + L"\r\n";
+    report += std::wstring(Tr(L"USBInfo - USB 设备、HUB、存储与线缆信息报告")) + L"\r\n";
+    report += std::wstring(Tr(L"生成时间")) + L": " + snapshot.generatedAt + L"\r\n";
+    const wchar_t* role = snapshot.elevated ? Tr(L"管理员") : Tr(L"标准用户");
+    report += std::wstring(Tr(L"运行权限")) + L": " + role + L"\r\n";
+    report += std::wstring(Tr(L"系统")) + L": " + GetWindowsBuildString() + L"\r\n";
+    report += std::wstring(Tr(L"摘要")) + L": " + snapshot.summary + L"\r\n";
     if (!snapshot.warnings.empty())
     {
-        report += L"\r\n警告:\r\n";
+        report += L"\r\n" + std::wstring(Tr(L"警告")) + L":\r\n";
         for (const auto& warning : snapshot.warnings)
             report += L"  - " + warning + L"\r\n";
     }
 
     report += L"\r\n";
     report.append(80, L'=');
-    report += L"\r\nUSB 拓扑树\r\n";
+    report += L"\r\n" + std::wstring(Tr(L"USB 拓扑树")) + L"\r\n";
     report.append(80, L'=');
     report += L"\r\n";
     if (snapshot.computerId >= 0)
@@ -470,7 +497,7 @@ std::wstring BuildFullReport(const UsbSnapshot& snapshot)
 
     report += L"\r\n";
     report.append(80, L'=');
-    report += L"\r\n设备详情\r\n";
+    report += L"\r\n" + std::wstring(Tr(L"设备详情")) + L"\r\n";
     report.append(80, L'=');
     report += L"\r\n";
     for (const auto& node : snapshot.nodes)

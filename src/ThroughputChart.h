@@ -32,6 +32,11 @@ public:
     // Shows a short status message in the plot area (used on done/cancel).
     void SetMessage(const std::wstring& message);
 
+    // Repaints with the current language.  Titles/messages are translated when
+    // painting, so only an invalidation is needed; the samples and the
+    // collected result data stay untouched.
+    void RefreshLanguage();
+
 private:
     int OnCreate(LPCREATESTRUCT createStruct);
     void OnDestroy();

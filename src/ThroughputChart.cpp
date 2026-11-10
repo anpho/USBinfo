@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ThroughputChart.h"
+#include "Language.h"
 
 #include <cmath>
 #include <cwchar>
@@ -131,7 +132,8 @@ void CThroughputChart::Clear(const std::wstring& stage)
 {
     m_samples.clear();
     m_total = 0.0;
-    m_stage = stage.empty() ? std::wstring(L"实时吞吐（MB/s）") : stage;
+    // An empty stage selects the localized default title, drawn in Draw().
+    m_stage = stage;
     m_message.clear();
     if (::IsWindow(m_hWnd))
         ::InvalidateRect(m_hWnd, nullptr, FALSE);
@@ -140,6 +142,14 @@ void CThroughputChart::Clear(const std::wstring& stage)
 void CThroughputChart::SetMessage(const std::wstring& message)
 {
     m_message = message;
+    if (::IsWindow(m_hWnd))
+        ::InvalidateRect(m_hWnd, nullptr, FALSE);
+}
+
+void CThroughputChart::RefreshLanguage()
+{
+    // The curve, the samples and the stage name are kept; the captions are
+    // translated while painting, so a repaint is enough.
     if (::IsWindow(m_hWnd))
         ::InvalidateRect(m_hWnd, nullptr, FALSE);
 }
@@ -230,11 +240,12 @@ void CThroughputChart::Draw(HDC dc, const RECT& client, int dpi)
     HFONT baseFont = PickFont(m_baseFont);
     HGDIOBJ oldFont = ::SelectObject(dc, PickFont(m_titleFont));
 
-    // Stage title.
+    // Stage title (localized while painting so a language switch only needs a
+    // repaint; the stage name itself is kept).
     ::SetTextColor(dc, kTitleColor);
     RECT titleText = titleRect;
     titleText.right = titleText.left + (titleRect.right - titleRect.left) * 45 / 100;
-    const std::wstring title = m_stage.empty() ? std::wstring(L"实时吞吐") : m_stage;
+    const std::wstring title = Tr(m_stage.empty() ? L"实时吞吐 (MB/s)" : m_stage.c_str());
     ::DrawTextW(dc, title.c_str(), -1, &titleText,
         DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
 
@@ -247,13 +258,13 @@ void CThroughputChart::Draw(HDC dc, const RECT& client, int dpi)
     wchar_t averageText[64] = {};
     if (hasSamples)
     {
-        swprintf_s(currentText, L"当前 %.2f MB/s", current);
-        swprintf_s(averageText, L"平均 %.2f MB/s", average);
+        swprintf_s(currentText, Tr(L"当前 %.2f MB/s"), current);
+        swprintf_s(averageText, Tr(L"平均 %.2f MB/s"), average);
     }
     else
     {
-        swprintf_s(currentText, L"当前 -- MB/s");
-        swprintf_s(averageText, L"平均 -- MB/s");
+        swprintf_s(currentText, Tr(L"当前 -- MB/s"));
+        swprintf_s(averageText, Tr(L"平均 -- MB/s"));
     }
 
     SIZE currentSize = {};
@@ -389,8 +400,11 @@ void CThroughputChart::Draw(HDC dc, const RECT& client, int dpi)
         ::DeleteObject(linePen);
     }
 
-    // Center message: "等待测速…" while idle, status text after done/cancel.
-    const std::wstring message = m_message.empty() ? (hasSamples ? std::wstring() : std::wstring(L"等待测速…")) : m_message;
+    // Center message: the localized "waiting" text while idle, status text
+    // after done/cancel (translated while painting).
+    const std::wstring message = !m_message.empty()
+        ? std::wstring(Tr(m_message))
+        : (hasSamples ? std::wstring() : std::wstring(Tr(L"等待测速…")));
     if (!message.empty())
     {
         ::SelectObject(dc, baseFont);

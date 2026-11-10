@@ -127,6 +127,7 @@
     <ClCompile Include="src\ChipDb.cpp" />
     <ClCompile Include="src\Smart.cpp" />
     <ClCompile Include="src\Benchmark.cpp" />
+    <ClCompile Include="src\Language.cpp" />
     <ClCompile Include="src\ThroughputChart.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -139,6 +140,10 @@
     <ClInclude Include="src\ChipDb.h" />
     <ClInclude Include="src\Smart.h" />
     <ClInclude Include="src\Benchmark.h" />
+    <ClInclude Include="src\Language.h" />
+    <ClInclude Include="src\LanguageCore.inc" />
+    <ClInclude Include="src\LanguageUi.inc" />
+    <ClInclude Include="src\LanguageData.inc" />
     <ClInclude Include="src\ThroughputChart.h" />
     <ClInclude Include="src\MainFrame.h" />
     <ClInclude Include="src\TreePane.h" />

@@ -25,6 +25,8 @@ public:
         COMMAND_ID_HANDLER(ID_VIEW_EXPAND_ALL, OnExpandAll)
         COMMAND_ID_HANDLER(ID_VIEW_COLLAPSE_ALL, OnCollapseAll)
         COMMAND_ID_HANDLER(ID_VIEW_ELEVATE, OnElevate)
+        COMMAND_RANGE_HANDLER_EX(ID_VIEW_LANGUAGE_AUTO, ID_VIEW_LANGUAGE_RU, OnLanguageCommand)
+        COMMAND_ID_HANDLER(ID_HELP_WEBSITE, OnHelpWebsite)
         COMMAND_ID_HANDLER(ID_HELP_ABOUT, OnAbout)
         MESSAGE_HANDLER(WM_APP_SCAN_DONE, OnScanDone)
         MESSAGE_HANDLER(WM_APP_NODE_SELECTED, OnNodeSelected)
@@ -33,6 +35,10 @@ public:
     END_MSG_MAP()
 
     ~CMainFrame();
+
+    // Rebuilds the localized UI (menu, title, tree, detail, status) in place.
+    // Never rescans devices and never restarts the application.
+    void ApplyLanguage();
 
 private:
     int OnCreate(LPCREATESTRUCT createStruct);
@@ -48,6 +54,8 @@ private:
     LRESULT OnExpandAll(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnCollapseAll(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnElevate(WORD notifyCode, WORD id, HWND control, BOOL& handled);
+    LRESULT OnLanguageCommand(UINT notifyCode, int id, HWND control);
+    LRESULT OnHelpWebsite(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnAbout(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnScanDone(UINT message, WPARAM wParam, LPARAM lParam, BOOL& handled);
     LRESULT OnNodeSelected(UINT message, WPARAM wParam, LPARAM lParam, BOOL& handled);
@@ -65,7 +73,7 @@ private:
     CDetailPane m_detailPane;
     CStatusBarCtrl m_status;
 
-    std::shared_ptr<const UsbSnapshot> m_snapshot;
+    std::shared_ptr<UsbSnapshot> m_snapshot;
     std::thread m_scanThread;
     std::atomic_bool m_cancel = false;
     bool m_scanning = false;

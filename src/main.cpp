@@ -1,7 +1,8 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "MainFrame.h"
 #include "Model.h"
 #include "UsbEnumerator.h"
+#include "Language.h"
 #include "resource.h"
 
 #include <cstdio>
@@ -44,7 +45,9 @@ int RunReportMode(const std::wstring& outputPath)
     std::wstring report = BuildFullReport(*snapshot);
     if (!WriteUtf8Report(outputPath, report))
     {
-        ::MessageBoxW(nullptr, (L"无法写入报告：" + outputPath).c_str(), L"USBInfo", MB_OK | MB_ICONERROR);
+        std::wstring message = Tr(L"无法写入报告：");
+        message += outputPath;
+        ::MessageBoxW(nullptr, message.c_str(), L"USBInfo", MB_OK | MB_ICONERROR);
         return 2;
     }
     return 0;
@@ -80,13 +83,15 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int showCommand)
         ::LocalFree(argv);
     }
 
+    LanguageInitialize();
+
     if (showHelp)
     {
         ::MessageBoxW(nullptr,
-            L"USBInfo 使用说明\n\n"
-            L"直接运行：打开图形界面。\n"
-            L"USBInfo.exe --report [路径]：无界面扫描并导出 UTF-8 文本报告。\n\n"
-            L"图形界面中可刷新、复制节点信息、导出报告，并在 USB 存储设备节点上测速。",
+            Tr(L"USBInfo 使用说明\n\n"
+               L"直接运行：打开图形界面。\n"
+               L"USBInfo.exe --report [路径]：无界面扫描并导出 UTF-8 文本报告。\n\n"
+               L"图形界面中可刷新、复制节点信息、导出报告，并在 USB 存储设备节点上测速。"),
             L"USBInfo", MB_OK | MB_ICONINFORMATION);
         return 0;
     }

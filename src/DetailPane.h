@@ -25,6 +25,10 @@ public:
     void ShowNode(int nodeId);
     int SelectedNodeId() const { return m_nodeId; }
     void SetScanning();
+    // Re-renders every localized UI string (header, tabs, list headers, warning
+    // and the benchmark page) from the current language without rescanning the
+    // devices and without losing the selected node.
+    void RefreshLanguage();
     void OpenBenchmarkPage();
     void CopyCurrentInfo();
     bool CanCopySelected() const;
@@ -81,5 +85,6 @@ private:
     int m_currentPage = PageInfo;
     bool m_smartAvailable = false;
     bool m_benchAvailable = false;
+    bool m_scanning = false;
     std::vector<InfoRow> m_infoRows;   // item index == row index (no header rows)
 };

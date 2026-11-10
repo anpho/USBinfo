@@ -25,6 +25,9 @@ public:
     void ExpandAll();
     void CollapseAll();
     void SetScanning(bool scanning);
+    // Re-applies translated text (header, refresh button, header state) and
+    // rebuilds the tree while keeping the currently selected node.
+    void RefreshLanguage();
 
 private:
     int OnCreate(LPCREATESTRUCT createStruct);
