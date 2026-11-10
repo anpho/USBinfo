@@ -15,7 +15,20 @@ constexpr wchar_t kWebsiteUrl[] = L"https://github.com/anpho/USBinfo";
 
 void OpenProjectHomepage()
 {
+    // Ask the already-running Explorer/shell process to open the URL. This is
+    // more reliable than starting the URL association directly from a
+    // standard-user process; Explorer runs in the interactive user session.
     SHELLEXECUTEINFOW info = {};
+    info.cbSize = sizeof(info);
+    info.fMask = SEE_MASK_NOASYNC;
+    info.lpFile = L"explorer.exe";
+    info.lpParameters = kWebsiteUrl;
+    info.nShow = SW_SHOWNORMAL;
+    if (::ShellExecuteExW(&info))
+        return;
+
+    // Fallback: direct URL association.
+    info = {};
     info.cbSize = sizeof(info);
     info.lpVerb = L"open";
     info.lpFile = kWebsiteUrl;
