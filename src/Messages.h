@@ -53,5 +53,4 @@
 #define ID_VIEW_LANGUAGE_JA       40026
 #define ID_VIEW_LANGUAGE_KO       40027
 #define ID_VIEW_LANGUAGE_RU       40028
-#define ID_HELP_WEBSITE           40030
 #define ID_HELP_ABOUT             40031

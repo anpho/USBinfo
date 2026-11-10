@@ -31,6 +31,13 @@ void OpenProjectHomepage()
     ::ShellExecuteW(nullptr, L"open", kWebsiteUrl, nullptr, nullptr, SW_SHOWNORMAL);
 }
 
+HRESULT CALLBACK AboutHyperlinkCallback(HWND, UINT message, WPARAM, LPARAM, LONG_PTR)
+{
+    if (message == TDN_HYPERLINK_CLICKED)
+        OpenProjectHomepage();
+    return S_OK;
+}
+
 struct LanguageMenuEntry
 {
     UINT commandId;
@@ -181,8 +188,6 @@ void CMainFrame::BuildMenu()
 
     CMenu helpMenu;
     helpMenu.CreatePopupMenu();
-    helpMenu.AppendMenuW(MF_STRING, ID_HELP_WEBSITE, Tr(L"项目主页(&W)"));
-    helpMenu.AppendMenuW(MF_SEPARATOR);
     helpMenu.AppendMenuW(MF_STRING, ID_HELP_ABOUT, Tr(L"关于(&A)"));
     menu.AppendMenuW(MF_POPUP, reinterpret_cast<UINT_PTR>(helpMenu.Detach()), Tr(L"帮助(&H)"));
 
@@ -384,12 +389,6 @@ LRESULT CMainFrame::OnLanguageCommand(UINT, int id, HWND)
     return 0;
 }
 
-LRESULT CMainFrame::OnHelpWebsite(WORD, WORD, HWND, BOOL&)
-{
-    OpenProjectHomepage();
-    return 0;
-}
-
 LRESULT CMainFrame::OnFileRefresh(WORD, WORD, HWND, BOOL&)
 {
     StartScan();
@@ -500,7 +499,8 @@ LRESULT CMainFrame::OnElevate(WORD, WORD, HWND, BOOL&)
 
 LRESULT CMainFrame::OnAbout(WORD, WORD, HWND, BOOL&)
 {
-    std::wstring message = std::wstring(L"USBInfo ") + USBINFO_VERSION_WSTRING + L"\n\n";
+    std::wstring version = std::wstring(L"USBInfo ") + USBINFO_VERSION_WSTRING;
+    std::wstring message;
     message += Tr(L"基于 WTL / C++20 / Win32 的 USB 拓扑、HUB、存储与测速工具。");
     message += L"\n\n";
     message += Tr(L"• 左侧树展示 USB 主机控制器 → HUB → 设备 → 接口/存储/端口的级联关系");
@@ -515,13 +515,20 @@ LRESULT CMainFrame::OnAbout(WORD, WORD, HWND, BOOL&)
                    L"芯片型号根据 VID/PID 推断，NAND 闪存颗粒通常无法通过 USB 桥接器读取。");
     message += L"\n\n";
     message += Tr(L"作者：");
-    message += L"anpho & Deepseek\n";
+    message += L"anpho && Deepseek\n";
     message += Tr(L"网页：");
-    message += L"https://github.com/anpho/USBinfo";
-    message += L"\n\n";
-    message += Tr(L"是否现在打开项目主页？");
-    if (::MessageBoxW(m_hWnd, message.c_str(), Tr(L"关于 USBInfo"), MB_YESNO | MB_ICONINFORMATION) == IDYES)
-        OpenProjectHomepage();
+    message += L"<a href=\"https://github.com/anpho/USBinfo\">https://github.com/anpho/USBinfo</a>";
+
+    TASKDIALOGCONFIG config = {};
+    config.cbSize = sizeof(config);
+    config.hwndParent = m_hWnd;
+    config.dwFlags = TDF_ENABLE_HYPERLINKS | TDF_ALLOW_DIALOG_CANCELLATION;
+    config.pszWindowTitle = Tr(L"关于 USBInfo");
+    config.pszMainIcon = TD_INFORMATION_ICON;
+    config.pszMainInstruction = version.c_str();
+    config.pszContent = message.c_str();
+    config.pfCallback = AboutHyperlinkCallback;
+    ::TaskDialogIndirect(&config, nullptr, nullptr, nullptr);
     return 0;
 }
 

@@ -26,7 +26,6 @@ public:
         COMMAND_ID_HANDLER(ID_VIEW_COLLAPSE_ALL, OnCollapseAll)
         COMMAND_ID_HANDLER(ID_VIEW_ELEVATE, OnElevate)
         COMMAND_RANGE_HANDLER_EX(ID_VIEW_LANGUAGE_AUTO, ID_VIEW_LANGUAGE_RU, OnLanguageCommand)
-        COMMAND_ID_HANDLER(ID_HELP_WEBSITE, OnHelpWebsite)
         COMMAND_ID_HANDLER(ID_HELP_ABOUT, OnAbout)
         MESSAGE_HANDLER(WM_APP_SCAN_DONE, OnScanDone)
         MESSAGE_HANDLER(WM_APP_NODE_SELECTED, OnNodeSelected)
@@ -55,7 +54,6 @@ private:
     LRESULT OnCollapseAll(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnElevate(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnLanguageCommand(UINT notifyCode, int id, HWND control);
-    LRESULT OnHelpWebsite(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnAbout(WORD notifyCode, WORD id, HWND control, BOOL& handled);
     LRESULT OnScanDone(UINT message, WPARAM wParam, LPARAM lParam, BOOL& handled);
     LRESULT OnNodeSelected(UINT message, WPARAM wParam, LPARAM lParam, BOOL& handled);
